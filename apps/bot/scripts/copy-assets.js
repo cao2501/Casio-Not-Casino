@@ -21,8 +21,8 @@ function copyFolderRecursiveSync(source, target) {
 }
 
 // Copy dashboard public assets
-const srcPath = path.join(__dirname, '../src/modules/dashboard/public');
-const destPath = path.join(__dirname, '../dist/modules/dashboard/public');
+const srcPath = path.join(__dirname, '../src/core/dashboard/public');
+const destPath = path.join(__dirname, '../dist/core/dashboard/public');
 
 if (fs.existsSync(srcPath)) {
   copyFolderRecursiveSync(srcPath, destPath);
