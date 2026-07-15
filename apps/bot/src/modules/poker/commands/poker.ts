@@ -43,7 +43,6 @@ export default class PokerCommand implements ICommand {
     if (activeLock) {
       return void interaction.editReply({ content: '❌ Bạn đang ở trong một phiên chơi khác chưa hoàn thành! Hãy hoàn thành ván đó trước.' });
     }
-    kernel.cache.set(`active_game:${userId}`, true, 600);
 
     // Lấy cấu hình tiền cược cá nhân của user
     const { config } = await getModuleConfig<Record<string, 'COIN' | 'VND'>>(guildId, 'casino_user_prefs');
@@ -56,7 +55,6 @@ export default class PokerCommand implements ICommand {
     if (startingBet < gameConfig.poker.minBet || startingBet > gameConfig.poker.maxBet) {
       const formattedMin = currency === 'VND' ? `${gameConfig.poker.minBet.toLocaleString('vi-VN')} ₫` : `${gameConfig.poker.minBet.toLocaleString()} Coins`;
       const formattedMax = currency === 'VND' ? `${gameConfig.poker.maxBet.toLocaleString('vi-VN')} ₫` : `${gameConfig.poker.maxBet.toLocaleString()} Coins`;
-      kernel.cache.del(`active_game:${userId}`);
       return void interaction.editReply({
         content: `❌ Tiền cược không hợp lệ! Mức cược cho phép từ **${formattedMin}** đến **${formattedMax}**.`
       });
@@ -81,6 +79,9 @@ export default class PokerCommand implements ICommand {
         content: `❌ Bạn không đủ số dư để chơi Poker!\nSố dư hiện tại: **${formattedBalance}**`
       });
     }
+
+    // Kích hoạt khóa phòng chơi sau khi kiểm tra số dư thành công
+    kernel.cache.set(`active_game:${userId}`, true, 1800);
 
     // Tiền cược hiện tại của người chơi và của bot
     let playerTotalBet = startingBet;
@@ -315,7 +316,7 @@ export default class PokerCommand implements ICommand {
     const collector = msg.createMessageComponentCollector({
       componentType: ComponentType.Button,
       filter: i => i.user.id === userId,
-      time: 120000 // 2 phút cho toàn bộ trận đấu
+      idle: 300000
     });
 
     let gameEnded = false;
