@@ -1,8 +1,8 @@
-import { ChatInputCommandInteraction, SlashCommandBuilder, AttachmentBuilder, PermissionFlagsBits } from 'discord.js';
+import { ChatInputCommandInteraction, SlashCommandBuilder, AttachmentBuilder, PermissionFlagsBits, GuildMember } from 'discord.js';
 import { ICommand } from '../../../core/interfaces/ICommand';
 import { logger } from '../../../core/logger/Logger';
 import { Kernel } from '../../../core/Kernel';
-import { ensureMember } from '../../../database/helpers';
+import { ensureMember, getModuleConfig } from '../../../database/helpers';
 import { CardRenderer } from '../../../core/ui/CardRenderer';
 import { UIBuilders } from '../../../core/ui/UIBuilders';
 import { SpecialLogger } from '../../../core/logger/SpecialLogger';
@@ -200,6 +200,39 @@ export default class VndCommand implements ICommand {
 		// 2. /vnd balance
 		if (subcommand === 'balance') {
 			const targetUser = interaction.options.getUser('member') ?? interaction.user;
+
+			// Kiểm tra quyền hạn xem số dư của người khác
+			const isOwner = kernel.ownerIds.includes(interaction.user.id);
+			const isAdmin = interaction.memberPermissions?.has(PermissionFlagsBits.Administrator) || interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild);
+			
+			let isSpecialAdmin = false;
+			try {
+				const { config } = await getModuleConfig<any>(guildId, 'command_permissions');
+				const rules = config.permissions?.[`vnd balance`] || config.permissions?.[`vnd`] || {};
+				const adminRoles = rules.adminRoles || [];
+				if (adminRoles.length > 0) {
+					const member = interaction.member as GuildMember;
+					const memberRoles = member.roles.cache.map(r => r.id);
+					isSpecialAdmin = memberRoles.some(rId => adminRoles.includes(rId));
+				}
+			} catch {}
+
+			if (targetUser.id !== interaction.user.id && !isOwner && !isAdmin && !isSpecialAdmin) {
+				const errorEmbed = UIBuilders.createErrorEmbed(
+					'Từ Chối Quyền Hạn',
+					'❌ Chỉ Quản trị viên mới được quyền xem số dư VND của người khác.',
+				);
+				const buffer = await UIBuilders.convertToCanvasCard(
+					errorEmbed,
+					interaction.user.displayAvatarURL({ extension: 'png' }),
+					interaction.user.username,
+					interaction.guild?.name,
+				);
+				const attachment = new AttachmentBuilder(buffer, { name: 'error.png' });
+				await interaction.editReply({ files: [attachment] });
+				return;
+			}
+
 			await ensureMember(guildId, targetUser.id);
 
 			const memberData = await kernel.db.guildMember.findUnique({

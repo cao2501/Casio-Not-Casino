@@ -140,21 +140,26 @@ export class Kernel {
           if (rules) {
             const member = interaction.member as GuildMember;
             const memberRoles = member.roles.cache.map(r => r.id);
-            const allowed = rules.allowedRoles || [];
-            const denied = rules.deniedRoles || [];
+            const adminRoles = rules.adminRoles || [];
+            const hasAdminRole = memberRoles.some(rId => adminRoles.includes(rId));
 
-            if (denied.length > 0 && memberRoles.some(rId => denied.includes(rId))) {
-              const errorEmbed = UIBuilders.createErrorEmbed('Từ Chối Quyền Hạn', '❌ Vai trò của bạn bị cấm sử dụng lệnh này.');
-              const buffer = await UIBuilders.convertToCanvasCard(errorEmbed, interaction.user.displayAvatarURL({ extension: 'png' }), interaction.user.username, interaction.guild?.name);
-              const file = new AttachmentBuilder(buffer, { name: 'error.png' });
-              return void interaction.reply({ files: [file], ephemeral: true });
-            }
+            if (!hasAdminRole) {
+              const allowed = rules.allowedRoles || [];
+              const denied = rules.deniedRoles || [];
 
-            if (allowed.length > 0 && !memberRoles.some(rId => allowed.includes(rId))) {
-              const errorEmbed = UIBuilders.createErrorEmbed('Từ Chối Quyền Hạn', '❌ Bạn không có vai trò phù hợp để sử dụng lệnh này.');
-              const buffer = await UIBuilders.convertToCanvasCard(errorEmbed, interaction.user.displayAvatarURL({ extension: 'png' }), interaction.user.username, interaction.guild?.name);
-              const file = new AttachmentBuilder(buffer, { name: 'error.png' });
-              return void interaction.reply({ files: [file], ephemeral: true });
+              if (denied.length > 0 && memberRoles.some(rId => denied.includes(rId))) {
+                const errorEmbed = UIBuilders.createErrorEmbed('Từ Chối Quyền Hạn', '❌ Vai trò của bạn bị cấm sử dụng lệnh này.');
+                const buffer = await UIBuilders.convertToCanvasCard(errorEmbed, interaction.user.displayAvatarURL({ extension: 'png' }), interaction.user.username, interaction.guild?.name);
+                const file = new AttachmentBuilder(buffer, { name: 'error.png' });
+                return void interaction.reply({ files: [file], ephemeral: true });
+              }
+
+              if (allowed.length > 0 && !memberRoles.some(rId => allowed.includes(rId))) {
+                const errorEmbed = UIBuilders.createErrorEmbed('Từ Chối Quyền Hạn', '❌ Bạn không có vai trò phù hợp để sử dụng lệnh này.');
+                const buffer = await UIBuilders.convertToCanvasCard(errorEmbed, interaction.user.displayAvatarURL({ extension: 'png' }), interaction.user.username, interaction.guild?.name);
+                const file = new AttachmentBuilder(buffer, { name: 'error.png' });
+                return void interaction.reply({ files: [file], ephemeral: true });
+              }
             }
           }
         } catch (err) {

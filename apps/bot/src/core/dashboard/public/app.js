@@ -456,18 +456,20 @@ document.addEventListener('DOMContentLoaded', () => {
     rolesBody.innerHTML = '';
 
     if (currentRoles.length === 0) {
-      rolesBody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--text-muted);">Máy chủ không có vai trò custom nào (ngoại trừ @everyone)</td></tr>';
+      rolesBody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);">Máy chủ không có vai trò custom nào (ngoại trừ @everyone)</td></tr>';
       return;
     }
 
-    const commandRule = currentConfigPermissions[commandName] || { allowedRoles: [], deniedRoles: [] };
+    const commandRule = currentConfigPermissions[commandName] || { allowedRoles: [], deniedRoles: [], adminRoles: [] };
     const allowed = commandRule.allowedRoles || [];
     const denied = commandRule.deniedRoles || [];
+    const admin = commandRule.adminRoles || [];
 
     currentRoles.forEach(role => {
       const tr = document.createElement('tr');
       const isAllowed = allowed.includes(role.id);
       const isDenied = denied.includes(role.id);
+      const isAdmin = admin.includes(role.id);
 
       tr.innerHTML = `
         <td>
@@ -475,6 +477,12 @@ document.addEventListener('DOMContentLoaded', () => {
             <span class="role-color-dot" style="background-color: ${role.color || '#FFF'}"></span>
             <span style="color: ${role.color !== '#000000' ? role.color : 'inherit'}; font-weight: 600;">${role.name}</span>
           </div>
+        </td>
+        <td style="text-align: center;">
+          <label class="perm-checkbox special">
+            <input type="checkbox" class="cb-special" data-role-id="${role.id}" ${isAdmin ? 'checked' : ''}>
+            <span class="perm-checkmark"></span>
+          </label>
         </td>
         <td style="text-align: center;">
           <label class="perm-checkbox allowed">
@@ -490,18 +498,28 @@ document.addEventListener('DOMContentLoaded', () => {
         </td>
       `;
 
-      // Handlers to mutually exclude allowed and denied check
+      // Handlers to mutually exclude checks
+      const cbSpecial = tr.querySelector('.cb-special');
       const cbAllowed = tr.querySelector('.cb-allowed');
       const cbDenied = tr.querySelector('.cb-denied');
 
+      cbSpecial.addEventListener('change', (e) => {
+        if (e.target.checked) {
+          cbAllowed.checked = false;
+          cbDenied.checked = false;
+        }
+      });
+
       cbAllowed.addEventListener('change', (e) => {
         if (e.target.checked) {
+          cbSpecial.checked = false;
           cbDenied.checked = false;
         }
       });
 
       cbDenied.addEventListener('change', (e) => {
         if (e.target.checked) {
+          cbSpecial.checked = false;
           cbAllowed.checked = false;
         }
       });
@@ -519,9 +537,11 @@ document.addEventListener('DOMContentLoaded', () => {
       const commandName = document.getElementById('commandSelect').value;
       const allowedRoles = [];
       const deniedRoles = [];
+      const adminRoles = [];
 
       const allowedCheckboxes = document.querySelectorAll('.cb-allowed');
       const deniedCheckboxes = document.querySelectorAll('.cb-denied');
+      const specialCheckboxes = document.querySelectorAll('.cb-special');
 
       allowedCheckboxes.forEach(cb => {
         if (cb.checked) {
@@ -535,8 +555,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       });
 
+      specialCheckboxes.forEach(cb => {
+        if (cb.checked) {
+          adminRoles.push(cb.getAttribute('data-role-id'));
+        }
+      });
+
       // Update locally
-      currentConfigPermissions[commandName] = { allowedRoles, deniedRoles };
+      currentConfigPermissions[commandName] = { allowedRoles, deniedRoles, adminRoles };
 
       btnSavePermissions.disabled = true;
       try {

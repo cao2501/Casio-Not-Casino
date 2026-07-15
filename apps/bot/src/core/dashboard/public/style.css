@@ -770,6 +770,13 @@ input:checked + .slider-toggle:before {
   box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
 }
 
+/* Special checkbox active: màu vàng gold */
+.perm-checkbox.special input:checked ~ .perm-checkmark {
+  background-color: var(--accent-gold);
+  border-color: var(--accent-gold);
+  box-shadow: 0 0 10px rgba(246, 196, 83, 0.4);
+}
+
 /* Denied checkbox active: màu đỏ */
 .perm-checkbox.denied input:checked ~ .perm-checkmark {
   background-color: var(--danger);
