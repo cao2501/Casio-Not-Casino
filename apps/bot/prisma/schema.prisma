@@ -1,0 +1,753 @@
+// ============================================================
+// Enterprise Discord Bot — Full Prisma Schema
+// ============================================================
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// CORE
+// ============================================================
+model Guild {
+  id          String   @id
+  name        String   @default("")
+  ownerId     String   @default("")
+  iconUrl     String?
+  premium     Boolean  @default(false)
+  premiumTier Int      @default(0)
+  premiumUntil DateTime?
+  language    String   @default("vi")
+  timezone    String   @default("Asia/Ho_Chi_Minh")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  moduleConfigs   ModuleConfig[]
+  members         GuildMember[]
+  warnings        Warning[]
+  tickets         Ticket[]
+  ticketPanels    TicketPanel[]
+  suggestions     Suggestion[]
+  reactionRoles   ReactionRole[]
+  giveaways       Giveaway[]
+  polls           Poll[]
+  starboardPosts  StarboardPost[]
+  tempChannels    TempChannel[]
+  scheduledTasks  ScheduledTask[]
+  announcements   Announcement[]
+  logChannels     LogChannel[]
+  backups         GuildBackup[]
+  premiumRecord   PremiumRecord?
+  missions        Mission[]
+  achievements    GuildAchievement[]
+  levelRoles      LevelRole[]
+  shopItems       ShopItem[]
+}
+
+model User {
+  id        String   @id
+  username  String   @default("")
+  globalXp  Int      @default(0)
+  coins     Int      @default(0)
+  premium   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members         GuildMember[]
+  achievements    UserAchievement[]
+  missionProgress MissionProgress[]
+  reminders       Reminder[]
+}
+
+model GuildMember {
+  id         String   @id @default(cuid())
+  guildId    String
+  userId     String
+  xp         Int      @default(0)
+  level      Int      @default(0)
+  prestige   Int      @default(0)
+  voiceXp    Int      @default(0)
+  balance    Float    @default(0)
+  bank       Float    @default(0)
+  vnd        Float    @default(0)
+  reputation Int      @default(0)
+  nickname   String?
+  joinedAt   DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  guild   Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  user    User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([guildId, userId])
+  @@index([guildId])
+  @@index([userId])
+}
+
+model ModuleConfig {
+  id        String   @id @default(cuid())
+  guildId   String
+  module    String
+  enabled   Boolean  @default(true)
+  config    String   @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@unique([guildId, module])
+  @@index([guildId])
+}
+
+// ============================================================
+// MODULE: MODERATION
+// ============================================================
+model Warning {
+  id         String   @id @default(cuid())
+  guildId    String
+  userId     String
+  moderator  String
+  reason     String
+  points     Int      @default(1)
+  active     Boolean  @default(true)
+  expiresAt  DateTime?
+  createdAt  DateTime @default(now())
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@index([guildId, userId])
+}
+
+model ModerationCase {
+  id          String   @id @default(cuid())
+  guildId     String
+  caseNumber  Int
+  type        String   // BAN, KICK, WARN, MUTE, TIMEOUT, SOFTBAN, TEMPBAN
+  userId      String
+  moderatorId String
+  reason      String?
+  duration    Int?     // seconds
+  expiresAt   DateTime?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  @@unique([guildId, caseNumber])
+  @@index([guildId])
+}
+
+model AutomodRule {
+  id        String   @id @default(cuid())
+  guildId   String
+  type      String   // SPAM, MENTION_SPAM, INVITE, LINK, BAD_WORD, ADVERTISEMENT, SCAM, TOXICITY, NSFW
+  enabled   Boolean  @default(true)
+  config    String   @default("{}")
+  action    String   @default("DELETE") // DELETE, WARN, MUTE, KICK, BAN
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([guildId, type])
+}
+
+// ============================================================
+// MODULE: LOGGING
+// ============================================================
+model LogChannel {
+  id        String   @id @default(cuid())
+  guildId   String
+  eventType String
+  channelId String
+  enabled   Boolean  @default(true)
+  format    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@unique([guildId, eventType])
+}
+
+// ============================================================
+// MODULE: TICKETS
+// ============================================================
+model TicketPanel {
+  id          String   @id @default(cuid())
+  guildId     String
+  name        String
+  channelId   String
+  messageId   String?
+  type        String   @default("BUTTON") // BUTTON, SELECT_MENU
+  config      String   @default("{}")
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  guild   Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  tickets Ticket[]
+
+  @@index([guildId])
+}
+
+model Ticket {
+  id          String   @id @default(cuid())
+  guildId     String
+  panelId     String?
+  channelId   String   @unique
+  userId      String
+  claimedBy   String?
+  priority    String   @default("NORMAL") // LOW, NORMAL, HIGH, URGENT
+  status      String   @default("OPEN")   // OPEN, CLOSED, ARCHIVED
+  rating      Int?
+  subject     String?
+  transcript  String?
+  closedAt    DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  guild  Guild        @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  panel  TicketPanel? @relation(fields: [panelId], references: [id])
+
+  @@index([guildId])
+  @@index([userId])
+}
+
+// ============================================================
+// MODULE: VERIFICATION
+// ============================================================
+model VerificationAttempt {
+  id         String   @id @default(cuid())
+  guildId    String
+  userId     String
+  type       String   // BUTTON, CAPTCHA, MATH, ROLE, TIME
+  code       String?
+  attempts   Int      @default(0)
+  verified   Boolean  @default(false)
+  expiresAt  DateTime?
+  createdAt  DateTime @default(now())
+
+  @@index([guildId, userId])
+}
+
+// ============================================================
+// MODULE: WELCOME
+// ============================================================
+// Config stored in ModuleConfig JSON
+
+// ============================================================
+// MODULE: REACTION ROLES
+// ============================================================
+model ReactionRole {
+  id        String   @id @default(cuid())
+  guildId   String
+  messageId String
+  channelId String
+  emoji     String
+  roleId    String
+  type      String   @default("NORMAL") // NORMAL, UNIQUE, TOGGLE, TEMPORARY, VERIFICATION
+  duration  Int?     // for TEMPORARY (seconds)
+  createdAt DateTime @default(now())
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, emoji])
+  @@index([guildId])
+}
+
+// ============================================================
+// MODULE: LEVELING
+// ============================================================
+model LevelRole {
+  id      String @id @default(cuid())
+  guildId String
+  level   Int
+  roleId  String
+  type    String @default("ADD") // ADD, REMOVE
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@unique([guildId, level, roleId])
+}
+
+model XpCooldown {
+  id        String   @id @default(cuid())
+  guildId   String
+  userId    String
+  expiresAt DateTime
+
+  @@unique([guildId, userId])
+}
+
+// ============================================================
+// MODULE: ECONOMY
+// ============================================================
+model ShopItem {
+  id          String   @id @default(cuid())
+  guildId     String
+  name        String
+  description String?
+  price       Float
+  roleId      String?
+  type        String   @default("ROLE") // ROLE, CUSTOM
+  category    String   @default("GENERAL") // GENERAL, RING
+  currency    String   @default("ECO")     // ECO, VND
+  imageUrl    String?
+  stock       Int?     // null = unlimited
+  enabled     Boolean  @default(true)
+  emoji       String?
+  createdAt   DateTime @default(now())
+
+  guild      Guild           @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  purchases  ItemPurchase[]
+
+  @@index([guildId])
+}
+
+model ItemPurchase {
+  id        String   @id @default(cuid())
+  itemId    String
+  guildId   String
+  userId    String
+  quantity  Int      @default(1)
+  createdAt DateTime @default(now())
+
+  item ShopItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([guildId, userId])
+}
+
+model Transaction {
+  id          String   @id @default(cuid())
+  guildId     String
+  fromUserId  String?
+  toUserId    String
+  amount      Int
+  type        String   // DAILY, WEEKLY, MONTHLY, WORK, CRIME, ROB, TRANSFER, PURCHASE, REWARD
+  description String?
+  createdAt   DateTime @default(now())
+
+  @@index([guildId, toUserId])
+}
+
+// ============================================================
+// MODULE: GIVEAWAY
+// ============================================================
+model Giveaway {
+  id           String   @id @default(cuid())
+  guildId      String
+  channelId    String
+  messageId    String?  @unique
+  hostId       String
+  prize        String
+  winnerCount  Int      @default(1)
+  requirements String   @default("{}")
+  bonusEntries String   @default("[]")
+  entries      String   @default("[]")
+  winners      String   @default("[]")
+  status       String   @default("ACTIVE") // ACTIVE, ENDED, PAUSED, CANCELLED
+  endsAt       DateTime
+  createdAt    DateTime @default(now())
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@index([guildId])
+}
+
+// ============================================================
+// MODULE: POLLS
+// ============================================================
+model Poll {
+  id          String   @id @default(cuid())
+  guildId     String
+  channelId   String
+  messageId   String?  @unique
+  creatorId   String
+  question    String
+  options     String   // JSON array
+  votes       String   @default("{}") // {optionIndex: [userId, ...]}
+  anonymous   Boolean  @default(false)
+  multiChoice Boolean  @default(false)
+  status      String   @default("ACTIVE") // ACTIVE, ENDED
+  endsAt      DateTime?
+  correctAnswer String?
+  createdAt   DateTime @default(now())
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@index([guildId])
+}
+
+// ============================================================
+// MODULE: SUGGESTIONS
+// ============================================================
+model Suggestion {
+  id          String   @id @default(cuid())
+  guildId     String
+  channelId   String
+  messageId   String?  @unique
+  authorId    String
+  content     String
+  status      String   @default("PENDING") // PENDING, APPROVED, REJECTED, CONSIDERED
+  upvotes     String   @default("[]")
+  downvotes   String   @default("[]")
+  comments    String   @default("[]")
+  anonymous   Boolean  @default(false)
+  reviewNote  String?
+  reviewedBy  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@index([guildId])
+}
+
+// ============================================================
+// MODULE: STARBOARD
+// ============================================================
+model StarboardPost {
+  id             String   @id @default(cuid())
+  guildId        String
+  messageId      String
+  channelId      String
+  authorId       String
+  starboardMsgId String?  @unique
+  starCount      Int      @default(0)
+  type           String   @default("STAR") // STAR, MEDIA, HALL_OF_FAME
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@unique([guildId, messageId])
+}
+
+// ============================================================
+// MODULE: TEMP VOICE
+// ============================================================
+model TempChannel {
+  id        String   @id @default(cuid())
+  guildId   String
+  channelId String   @unique
+  ownerId   String
+  name      String
+  locked    Boolean  @default(false)
+  hidden    Boolean  @default(false)
+  limit     Int      @default(0)
+  region    String?
+  createdAt DateTime @default(now())
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@index([guildId])
+}
+
+// ============================================================
+// MODULE: SCHEDULER / ANNOUNCEMENTS
+// ============================================================
+model ScheduledTask {
+  id          String   @id @default(cuid())
+  guildId     String
+  type        String   // MESSAGE, ANNOUNCEMENT, ROLE, GIVEAWAY, POLL
+  channelId   String?
+  roleId      String?
+  content     String?
+  embed       String?
+  cronExpr    String?
+  runAt       DateTime?
+  repeat      Boolean  @default(false)
+  lastRun     DateTime?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@index([guildId])
+}
+
+model Announcement {
+  id          String   @id @default(cuid())
+  guildId     String
+  title       String
+  content     String
+  channels    String   // JSON array of channelIds
+  mentionRole String?
+  status      String   @default("DRAFT") // DRAFT, SENT, SCHEDULED
+  scheduledAt DateTime?
+  sentAt      DateTime?
+  createdAt   DateTime @default(now())
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@index([guildId])
+}
+
+// ============================================================
+// MODULE: BACKUP
+// ============================================================
+model GuildBackup {
+  id        String   @id @default(cuid())
+  guildId   String
+  name      String
+  data      String   // JSON of full backup
+  size      Int      @default(0)
+  createdAt DateTime @default(now())
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@index([guildId])
+}
+
+// ============================================================
+// MODULE: PREMIUM
+// ============================================================
+model PremiumRecord {
+  id        String   @id @default(cuid())
+  guildId   String   @unique
+  tier      Int      @default(1)
+  features  String   @default("[]")
+  startedAt DateTime @default(now())
+  expiresAt DateTime?
+  active    Boolean  @default(true)
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+}
+
+// ============================================================
+// MODULE: DAILY MISSIONS
+// ============================================================
+model Mission {
+  id          String   @id @default(cuid())
+  guildId     String
+  name        String
+  description String
+  type        String   // DAILY, WEEKLY, MONTHLY, SEASONAL, EVENT
+  taskType    String   // SEND_MESSAGES, VOICE_TIME, INVITE, REACTION, etc.
+  target      Int
+  rewards     String   // JSON
+  active      Boolean  @default(true)
+  resetCron   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  guild     Guild             @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  progress  MissionProgress[]
+
+  @@index([guildId])
+}
+
+model MissionProgress {
+  id        String   @id @default(cuid())
+  missionId String
+  userId    String
+  guildId   String
+  progress  Int      @default(0)
+  completed Boolean  @default(false)
+  claimedAt DateTime?
+  resetAt   DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  mission Mission @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([missionId, userId])
+}
+
+model DailyStreak {
+  id          String   @id @default(cuid())
+  guildId     String
+  userId      String
+  streak      Int      @default(0)
+  maxStreak   Int      @default(0)
+  lastClaimAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([guildId, userId])
+}
+
+// ============================================================
+// MODULE: ACHIEVEMENTS
+// ============================================================
+model Achievement {
+  id          String   @id @default(cuid())
+  guildId     String?  // null = global
+  name        String
+  description String
+  icon        String?
+  category    String   @default("GENERAL")
+  hidden      Boolean  @default(false)
+  condition   String   // JSON condition
+  rewards     String   @default("{}")
+  createdAt   DateTime @default(now())
+
+  userAchievements UserAchievement[]
+  guildAchievements GuildAchievement[]
+}
+
+model UserAchievement {
+  id            String   @id @default(cuid())
+  userId        String
+  achievementId String
+  guildId       String?
+  unlockedAt    DateTime @default(now())
+  showcased     Boolean  @default(false)
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievement Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, achievementId])
+}
+
+model GuildAchievement {
+  id            String   @id @default(cuid())
+  guildId       String
+  achievementId String
+  createdAt     DateTime @default(now())
+
+  guild       Guild       @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  achievement Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+
+  @@unique([guildId, achievementId])
+}
+
+// ============================================================
+// MODULE: UTILITY
+// ============================================================
+model Reminder {
+  id        String   @id @default(cuid())
+  userId    String
+  guildId   String?
+  channelId String?
+  message   String
+  remindAt  DateTime
+  sent      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ============================================================
+// MODULE: ANALYTICS
+// ============================================================
+model AnalyticsEvent {
+  id        String   @id @default(cuid())
+  guildId   String
+  type      String   // MESSAGE, VOICE_JOIN, VOICE_LEAVE, MEMBER_JOIN, MEMBER_LEAVE, COMMAND
+  userId    String?
+  data      String   @default("{}")
+  createdAt DateTime @default(now())
+
+  @@index([guildId, type])
+  @@index([guildId, createdAt])
+}
+
+// ============================================================
+// MODULE: API KEYS
+// ============================================================
+model ApiKey {
+  id          String   @id @default(cuid())
+  guildId     String
+  name        String
+  key         String   @unique
+  permissions String   @default("[]")
+  rateLimit   Int      @default(100)
+  active      Boolean  @default(true)
+  lastUsed    DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([guildId])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  guildId     String
+  userId      String?
+  action      String
+  target      String?
+  data        String   @default("{}")
+  ip          String?
+  createdAt   DateTime @default(now())
+
+  @@index([guildId])
+}
+
+// ============================================================
+// MODULE: STARBOARD ENTRIES (was missing)
+// ============================================================
+model StarboardEntry {
+  id                 String   @id @default(cuid())
+  guildId            String
+  messageId          String
+  starboardMessageId String
+  channelId          String
+  authorId           String
+  starCount          Int      @default(0)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@unique([guildId, messageId])
+  @@index([guildId])
+}
+
+// ============================================================
+// MODULE: VND DEPOSITS / PAYMENTS
+// ============================================================
+model VndTransaction {
+  id              String   @id // SePay transaction ID
+  guildId         String
+  userId          String
+  amount          Float
+  code            String?  // Pay code
+  referenceCode   String?  // Reference bank transaction code
+  content         String   // Full transfer message
+  gateway         String   // Bank name
+  transactionDate DateTime
+  createdAt       DateTime @default(now())
+
+  @@index([guildId])
+  @@index([userId])
+}
+
+model VndDepositRequest {
+  code      String   @id // Unique short deposit code, e.g. "KN1024"
+  guildId   String
+  userId    String
+  channelId String?  // ID kênh tạo lệnh nạp tiền
+  amount    Float
+  createdAt DateTime @default(now())
+}
+
+// ============================================================
+// MODULE: MARRIAGE / WEDDING
+// ============================================================
+model Marriage {
+  id          String   @id @default(cuid())
+  guildId     String
+  user1Id     String
+  user2Id     String
+  ringId      String   // ItemId of the ring used
+  ringName    String   // Cache ring name
+  ringEmoji   String?  // Custom ring emoji icon
+  caption     String?  // Custom caption
+  thumbnail   String?  // Custom thumbnail URL
+  image       String?  // Custom image URL
+  color       String   @default("0xff7bb5") // Embed hex color
+  lovePoints  Int      @default(0)
+  streak      Int      @default(1)
+  lastLuvAt   DateTime?
+  marriedAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([guildId, user1Id])
+  @@unique([guildId, user2Id])
+  @@index([guildId])
+}
+
+
+

@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kini Bot Admin Portal - Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+  <div class="dashboard-container">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <span class="sidebar-logo-icon">🃏</span>
+        <h2>KINI ADMIN</h2>
+      </div>
+      
+      <ul class="sidebar-menu">
+        <li class="menu-item active" data-tab="overview">
+          <a><span>📊</span> Tổng Quan</a>
+        </li>
+        <li class="menu-item" data-tab="settings">
+          <a><span>🎮</span> Luật Chơi & Tỉ Lệ</a>
+        </li>
+        <li class="menu-item" data-tab="leaderboard">
+          <a><span>🏆</span> Bảng Xếp Hạng</a>
+        </li>
+      </ul>
+      
+      <div class="sidebar-footer">
+        <button id="btnLogout" class="btn-logout">
+          <span>🚪</span> Đăng Xuất
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <header class="main-header">
+        <h1 id="pageTitle">Tổng Quan Hệ Thống</h1>
+        <div id="botStatusBadge" class="bot-badge-status">
+          <span class="status-dot"></span>
+          <span id="botStatusText">BOT ONLINE</span>
+        </div>
+      </header>
+
+      <!-- SECTION 1: OVERVIEW -->
+      <section id="section-overview" class="dashboard-section">
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon">📡</div>
+            <div class="stat-info">
+              <h3>Guilds (Máy chủ)</h3>
+              <p id="stat-guilds">-</p>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">👤</div>
+            <div class="stat-info">
+              <h3>Thành viên</h3>
+              <p id="stat-users">-</p>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">⏱️</div>
+            <div class="stat-info">
+              <h3>Uptime</h3>
+              <p id="stat-uptime">-</p>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">🧩</div>
+            <div class="stat-info">
+              <h3>Tổng Lệnh</h3>
+              <p id="stat-commands">-</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2><span>⚙️</span> Trạng Thái Hệ Thống</h2>
+          
+          <div class="maintenance-panel panel">
+            <div class="maintenance-info">
+              <h3>Chế Độ Bảo Trì (Maintenance Mode)</h3>
+              <p>Khi bật, chỉ các Owner/Admin bot được cấp quyền mới có thể tương tác với các lệnh của Bot.</p>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="maintenanceToggle">
+              <span class="slider-toggle"></span>
+            </label>
+          </div>
+
+          <div class="stats-grid" style="margin-bottom: 0;">
+            <div class="stat-card" style="box-shadow: none; border-color: rgba(255,255,255,0.03);">
+              <div class="stat-info">
+                <h3>RAM Sử dụng</h3>
+                <p id="stat-ram-used">- MB</p>
+              </div>
+            </div>
+            <div class="stat-card" style="box-shadow: none; border-color: rgba(255,255,255,0.03);">
+              <div class="stat-info">
+                <h3>RAM Hệ thống cấp</h3>
+                <p id="stat-ram-total">- MB</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 2: GAME RULES & WIN RATES -->
+      <section id="section-settings" class="dashboard-section hidden">
+        <form id="settingsForm">
+          <div class="panel">
+            <h2><span>🎲</span> Thiết Lập Tỉ Lệ & Luật Chơi Casino</h2>
+            
+            <div class="settings-form-row">
+              <!-- Blackjack config -->
+              <div class="game-card-panel">
+                <h3>🃏 Blackjack (Chơi vs Bot)</h3>
+                
+                <div class="form-group">
+                  <label for="bj-minbet">Đặt Cược Tối Thiểu (Min Bet)</label>
+                  <input type="number" id="bj-minbet" name="bj_minBet" min="1" required>
+                </div>
+                <div class="form-group">
+                  <label for="bj-maxbet">Đặt Cược Tối Đa (Max Bet)</label>
+                  <input type="number" id="bj-maxbet" name="bj_maxBet" min="1" required>
+                </div>
+                <div class="form-group">
+                  <label for="bj-timeout">Thời Gian Chờ Lượt (Giây)</label>
+                  <input type="number" id="bj-timeout" name="bj_timeoutSeconds" min="10" required>
+                </div>
+                <div class="form-group">
+                  <label for="bj-maxcards">Số Lá Rút Tối Đa (Ngũ Linh)</label>
+                  <input type="number" id="bj-maxcards" name="bj_maxCards" min="5" max="5" value="5" readonly disabled>
+                </div>
+
+                <div class="slider-container">
+                  <div class="slider-header">
+                    <span class="slider-label">Tỉ lệ Thắng của Bot</span>
+                    <span id="bj-winrate-val" class="slider-value">50%</span>
+                  </div>
+                  <div class="slider-wrapper">
+                    <input type="range" id="bj-winrate" name="bj_botWinRate" min="0" max="100" value="50">
+                  </div>
+                  <div id="bj-warning" class="slider-warning hidden">
+                    ⚠️ Cảnh báo: Tỉ lệ thắng bot quá cao (> 70%) có thể làm mất cân bằng trải nghiệm người chơi!
+                  </div>
+                </div>
+              </div>
+
+              <!-- Poker config -->
+              <div class="game-card-panel">
+                <h3>🎴 Poker Texas Hold'em (Chơi vs Bot)</h3>
+                
+                <div class="form-group">
+                  <label for="poker-minbet">Đặt Cược Tối Thiểu (Min Bet)</label>
+                  <input type="number" id="poker-minbet" name="poker_minBet" min="1" required>
+                </div>
+                <div class="form-group">
+                  <label for="poker-maxbet">Đặt Cược Tối Đa (Max Bet)</label>
+                  <input type="number" id="poker-maxbet" name="poker_maxBet" min="1" required>
+                </div>
+                <div class="form-group">
+                  <label for="poker-timeout">Thời Gian Chờ Lượt (Giây)</label>
+                  <input type="number" id="poker-timeout" name="poker_timeoutSeconds" min="10" required>
+                </div>
+
+                <div class="slider-container">
+                  <div class="slider-header">
+                    <span class="slider-label">Tỉ lệ Thắng của Bot</span>
+                    <span id="poker-winrate-val" class="slider-value">50%</span>
+                  </div>
+                  <div class="slider-wrapper">
+                    <input type="range" id="poker-winrate" name="poker_botWinRate" min="0" max="100" value="50">
+                  </div>
+                  <div id="poker-warning" class="slider-warning hidden">
+                    ⚠️ Cảnh báo: Tỉ lệ thắng bot quá cao (> 70%) có thể làm mất cân bằng trải nghiệm người chơi!
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="save-bar">
+              <button type="button" id="btnResetSettings" class="btn-action btn-secondary">Khôi Phục Mặc Định</button>
+              <button type="submit" id="btnSaveSettings" class="btn-action" style="width: auto; padding: 15px 40px;">Lưu Cấu Hình</button>
+            </div>
+          </div>
+        </form>
+      </section>
+
+      <!-- SECTION 3: LEADERBOARD -->
+      <section id="section-leaderboard" class="dashboard-section hidden">
+        <div class="tables-grid">
+          <!-- Top Coins -->
+          <div class="panel">
+            <h2>🏆 Đại Gia Coins</h2>
+            <table class="leaderboard-table">
+              <thead>
+                <tr>
+                  <th style="width: 80px;">Hạng</th>
+                  <th>Người Chơi</th>
+                  <th style="text-align: right;">Số Dư Coins</th>
+                </tr>
+              </thead>
+              <tbody id="leaderboard-coins-body">
+                <!-- Filled by JS -->
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Top VND -->
+          <div class="panel">
+            <h2>🏆 Đại Gia VNĐ</h2>
+            <table class="leaderboard-table">
+              <thead>
+                <tr>
+                  <th style="width: 80px;">Hạng</th>
+                  <th>Người Chơi</th>
+                  <th style="text-align: right;">Số Dư VNĐ</th>
+                </tr>
+              </thead>
+              <tbody id="leaderboard-vnd-body">
+                <!-- Filled by JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

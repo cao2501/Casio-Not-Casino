@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  bot:
+    build: .
+    container_name: kini-discord-bot
+    restart: unless-stopped
+    ports:
+      - "${DASHBOARD_PORT:-3000}:3000"
+    volumes:
+      - bot-data:/usr/src/app/data
+      - bot-logs:/usr/src/app/logs
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=file:/usr/src/app/data/bot.db
+
+volumes:
+  bot-data:
+  bot-logs:
