@@ -4,7 +4,7 @@ import http from 'http';
 import { Server as SocketServer } from 'socket.io';
 import path from 'path';
 import { Kernel } from '../Kernel';
-import { getGameConfig, setGameConfig } from '../../database/helpers';
+import { getGameConfig, setGameConfig, getModuleConfig, setModuleConfig } from '../../database/helpers';
 import { logger } from '../logger/Logger';
 
 declare module 'express-session' {
@@ -188,6 +188,65 @@ export class DashboardServer {
           topCoins: await resolveUsernames(topCoins),
           topVnd: await resolveUsernames(topVnd)
         });
+      } catch (err: any) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
+    this.app.get('/api/permissions/guilds', requireAuth, async (req, res) => {
+      try {
+        const guilds = this.kernel.client.guilds.cache.map(g => ({
+          id: g.id,
+          name: g.name,
+          iconUrl: g.iconURL()
+        }));
+        res.json(guilds);
+      } catch (err: any) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
+    this.app.get('/api/permissions/:guildId/roles', requireAuth, async (req, res) => {
+      try {
+        const guildId = req.params.guildId as string;
+        const guild = await this.kernel.client.guilds.fetch(guildId);
+        if (!guild) {
+          return res.status(404).json({ error: 'Không tìm thấy máy chủ' });
+        }
+        const roles = guild.roles.cache
+          .filter(r => r.name !== '@everyone' && !r.managed)
+          .map(r => ({
+            id: r.id,
+            name: r.name,
+            color: r.hexColor
+          }));
+        res.json(roles);
+      } catch (err: any) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
+    this.app.get('/api/permissions/:guildId/commands', requireAuth, async (req, res) => {
+      try {
+        const guildId = req.params.guildId as string;
+        const commands = this.kernel.client.commands.map(cmd => ({
+          name: cmd.data.name,
+          description: cmd.data.description
+        }));
+        const { config } = await getModuleConfig<any>(guildId, 'command_permissions');
+        const permissions = config?.permissions || {};
+        res.json({ commands, permissions });
+      } catch (err: any) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
+    this.app.post('/api/permissions/:guildId', requireAuth, async (req, res) => {
+      try {
+        const guildId = req.params.guildId as string;
+        const { permissions } = req.body;
+        await setModuleConfig(guildId, 'command_permissions', { permissions });
+        res.json({ success: true, message: 'Cập nhật phân quyền thành công' });
       } catch (err: any) {
         res.status(500).json({ error: err.message });
       }

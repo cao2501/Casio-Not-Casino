@@ -730,3 +730,82 @@ input:checked + .slider-toggle:before {
   transform: none;
   box-shadow: none;
 }
+
+/* Checkbox custom cho phân quyền */
+.perm-checkbox {
+  position: relative;
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+}
+
+.perm-checkbox input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.perm-checkmark {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 24px;
+  height: 24px;
+  background-color: rgba(255, 255, 255, 0.05);
+  border: 1.5px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.perm-checkbox:hover .perm-checkmark {
+  border-color: rgba(255, 255, 255, 0.35);
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+/* Allowed checkbox active: màu xanh */
+.perm-checkbox.allowed input:checked ~ .perm-checkmark {
+  background-color: var(--success);
+  border-color: var(--success);
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+}
+
+/* Denied checkbox active: màu đỏ */
+.perm-checkbox.denied input:checked ~ .perm-checkmark {
+  background-color: var(--danger);
+  border-color: var(--danger);
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.3);
+}
+
+.perm-checkmark:after {
+  content: "";
+  position: absolute;
+  display: none;
+}
+
+.perm-checkbox input:checked ~ .perm-checkmark:after {
+  display: block;
+}
+
+.perm-checkbox .perm-checkmark:after {
+  left: 8px;
+  top: 4px;
+  width: 5px;
+  height: 10px;
+  border: solid white;
+  border-width: 0 2.5px 2.5px 0;
+  transform: rotate(45deg);
+}
+
+.role-badge-display {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+}
+
+.role-color-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}

@@ -11,7 +11,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const titles = {
     overview: 'Tổng Quan Hệ Thống',
     settings: 'Luật Chơi & Tỉ Lệ',
-    leaderboard: 'Bảng Xếp Hạng Người Chơi'
+    leaderboard: 'Bảng Xếp Hạng Người Chơi',
+    permissions: 'Quyền Hạn Lệnh'
   };
 
   menuItems.forEach(item => {
@@ -39,6 +40,8 @@ document.addEventListener('DOMContentLoaded', () => {
         loadSettings();
       } else if (tabName === 'leaderboard') {
         loadLeaderboard();
+      } else if (tabName === 'permissions') {
+        loadPermissionsTab();
       }
     });
   });
@@ -358,5 +361,201 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
       toast.remove();
     }, 5000);
+  }
+
+  // --- COMMAND PERMISSIONS TAB LOGIC ---
+  let currentGuildId = '';
+  let currentRoles = [];
+  let currentCommands = [];
+  let currentConfigPermissions = {};
+
+  async function loadPermissionsTab() {
+    const guildSelect = document.getElementById('guildSelect');
+    const configContainer = document.getElementById('permissionsConfigContainer');
+    
+    guildSelect.innerHTML = '<option value="" disabled selected>Đang tải danh sách máy chủ...</option>';
+    configContainer.classList.add('hidden');
+
+    try {
+      const res = await fetch('/api/permissions/guilds');
+      if (res.ok) {
+        const guilds = await res.json();
+        guildSelect.innerHTML = '<option value="" disabled selected>-- Chọn một Máy Chủ (Guild) --</option>';
+        guilds.forEach(g => {
+          const opt = document.createElement('option');
+          opt.value = g.id;
+          opt.textContent = g.name;
+          guildSelect.appendChild(opt);
+        });
+      } else {
+        showToast('Không thể tải danh sách máy chủ', 'error');
+      }
+    } catch {
+      showToast('Lỗi kết nối máy chủ', 'error');
+    }
+  }
+
+  // Guild Select change listener
+  const guildSelect = document.getElementById('guildSelect');
+  if (guildSelect) {
+    guildSelect.addEventListener('change', async (e) => {
+      currentGuildId = e.target.value;
+      const configContainer = document.getElementById('permissionsConfigContainer');
+      const rolesBody = document.getElementById('roles-permissions-body');
+      const commandSelect = document.getElementById('commandSelect');
+
+      rolesBody.innerHTML = '<tr><td colspan="3" style="text-align:center;">Đang tải cấu hình quyền...</td></tr>';
+      commandSelect.innerHTML = '<option value="" disabled selected>Đang tải danh sách lệnh...</option>';
+      configContainer.classList.remove('hidden');
+
+      try {
+        // Fetch roles and commands in parallel
+        const [resRoles, resCommands] = await Promise.all([
+          fetch(`/api/permissions/${currentGuildId}/roles`),
+          fetch(`/api/permissions/${currentGuildId}/commands`)
+        ]);
+
+        if (resRoles.ok && resCommands.ok) {
+          currentRoles = await resRoles.json();
+          const cmdData = await resCommands.json();
+          currentCommands = cmdData.commands;
+          currentConfigPermissions = cmdData.permissions;
+
+          // Render command select options
+          commandSelect.innerHTML = '';
+          currentCommands.forEach((cmd, i) => {
+            const opt = document.createElement('option');
+            opt.value = cmd.name;
+            opt.textContent = `/${cmd.name} - ${cmd.description || 'Không có mô tả'}`;
+            if (i === 0) opt.selected = true;
+            commandSelect.appendChild(opt);
+          });
+
+          // Trigger first command permissions render
+          renderRolesPermissionsTable(commandSelect.value);
+        } else {
+          showToast('Lỗi tải thông tin máy chủ', 'error');
+        }
+      } catch (err) {
+        showToast('Lỗi kết nối máy chủ', 'error');
+      }
+    });
+  }
+
+  // Command Select change listener
+  const commandSelect = document.getElementById('commandSelect');
+  if (commandSelect) {
+    commandSelect.addEventListener('change', (e) => {
+      renderRolesPermissionsTable(e.target.value);
+    });
+  }
+
+  function renderRolesPermissionsTable(commandName) {
+    const rolesBody = document.getElementById('roles-permissions-body');
+    if (!rolesBody) return;
+    rolesBody.innerHTML = '';
+
+    if (currentRoles.length === 0) {
+      rolesBody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--text-muted);">Máy chủ không có vai trò custom nào (ngoại trừ @everyone)</td></tr>';
+      return;
+    }
+
+    const commandRule = currentConfigPermissions[commandName] || { allowedRoles: [], deniedRoles: [] };
+    const allowed = commandRule.allowedRoles || [];
+    const denied = commandRule.deniedRoles || [];
+
+    currentRoles.forEach(role => {
+      const tr = document.createElement('tr');
+      const isAllowed = allowed.includes(role.id);
+      const isDenied = denied.includes(role.id);
+
+      tr.innerHTML = `
+        <td>
+          <div class="role-badge-display">
+            <span class="role-color-dot" style="background-color: ${role.color || '#FFF'}"></span>
+            <span style="color: ${role.color !== '#000000' ? role.color : 'inherit'}; font-weight: 600;">${role.name}</span>
+          </div>
+        </td>
+        <td style="text-align: center;">
+          <label class="perm-checkbox allowed">
+            <input type="checkbox" class="cb-allowed" data-role-id="${role.id}" ${isAllowed ? 'checked' : ''}>
+            <span class="perm-checkmark"></span>
+          </label>
+        </td>
+        <td style="text-align: center;">
+          <label class="perm-checkbox denied">
+            <input type="checkbox" class="cb-denied" data-role-id="${role.id}" ${isDenied ? 'checked' : ''}>
+            <span class="perm-checkmark"></span>
+          </label>
+        </td>
+      `;
+
+      // Handlers to mutually exclude allowed and denied check
+      const cbAllowed = tr.querySelector('.cb-allowed');
+      const cbDenied = tr.querySelector('.cb-denied');
+
+      cbAllowed.addEventListener('change', (e) => {
+        if (e.target.checked) {
+          cbDenied.checked = false;
+        }
+      });
+
+      cbDenied.addEventListener('change', (e) => {
+        if (e.target.checked) {
+          cbAllowed.checked = false;
+        }
+      });
+
+      rolesBody.appendChild(tr);
+    });
+  }
+
+  // Save Button Action
+  const btnSavePermissions = document.getElementById('btnSavePermissions');
+  if (btnSavePermissions) {
+    btnSavePermissions.addEventListener('click', async () => {
+      if (!currentGuildId) return;
+
+      const commandName = document.getElementById('commandSelect').value;
+      const allowedRoles = [];
+      const deniedRoles = [];
+
+      const allowedCheckboxes = document.querySelectorAll('.cb-allowed');
+      const deniedCheckboxes = document.querySelectorAll('.cb-denied');
+
+      allowedCheckboxes.forEach(cb => {
+        if (cb.checked) {
+          allowedRoles.push(cb.getAttribute('data-role-id'));
+        }
+      });
+
+      deniedCheckboxes.forEach(cb => {
+        if (cb.checked) {
+          deniedRoles.push(cb.getAttribute('data-role-id'));
+        }
+      });
+
+      // Update locally
+      currentConfigPermissions[commandName] = { allowedRoles, deniedRoles };
+
+      btnSavePermissions.disabled = true;
+      try {
+        const res = await fetch(`/api/permissions/${currentGuildId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ permissions: currentConfigPermissions })
+        });
+
+        if (res.ok) {
+          showToast(`Đã lưu cấu hình phân quyền cho lệnh /${commandName} thành công!`, 'success');
+        } else {
+          showToast('Không thể lưu cấu hình phân quyền', 'error');
+        }
+      } catch {
+        showToast('Lỗi kết nối máy chủ', 'error');
+      } finally {
+        btnSavePermissions.disabled = false;
+      }
+    });
   }
 });

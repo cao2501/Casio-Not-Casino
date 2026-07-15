@@ -29,6 +29,9 @@
         <li class="menu-item" data-tab="leaderboard">
           <a><span>🏆</span> Bảng Xếp Hạng</a>
         </li>
+        <li class="menu-item" data-tab="permissions">
+          <a><span>🛡️</span> Quyền Hạn Lệnh</a>
+        </li>
       </ul>
       
       <div class="sidebar-footer">
@@ -229,6 +232,51 @@
                 <!-- Filled by JS -->
               </tbody>
             </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 4: COMMAND PERMISSIONS -->
+      <section id="section-permissions" class="dashboard-section hidden">
+        <div class="panel">
+          <h2><span>🛡️</span> Thiết Lập Quyền Hạn Lệnh</h2>
+          <p class="section-subtitle" style="margin-bottom: 25px; opacity: 0.7;">Chọn một máy chủ (Guild), sau đó chỉ định vai trò được phép (Allowed) hoặc bị chặn (Denied) sử dụng cho từng lệnh của Bot.</p>
+
+          <div class="guild-selector-container form-group" style="max-width: 400px; margin-bottom: 30px;">
+            <label for="guildSelect">Chọn Máy Chủ (Guild)</label>
+            <select id="guildSelect" class="form-select" style="width: 100%; padding: 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: #fff; font-size: 16px;">
+              <option value="" disabled selected>Đang tải danh sách máy chủ...</option>
+            </select>
+          </div>
+
+          <!-- Giao diện cài đặt quyền hạn, mặc định ẩn khi chưa chọn Guild -->
+          <div id="permissionsConfigContainer" class="hidden">
+            <div class="form-group" style="max-width: 400px; margin-bottom: 30px;">
+              <label for="commandSelect">Chọn Lệnh Cần Cấu Hình</label>
+              <select id="commandSelect" class="form-select" style="width: 100%; padding: 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: #fff; font-size: 16px;">
+                <!-- Filled dynamically -->
+              </select>
+            </div>
+
+            <!-- Bảng Roles phân quyền -->
+            <div class="roles-permissions-table-container">
+              <table class="leaderboard-table">
+                <thead>
+                  <tr>
+                    <th>Vai Trò (Role)</th>
+                    <th style="text-align: center; width: 150px;">Cho Phép (Allowed)</th>
+                    <th style="text-align: center; width: 150px;">Bị Chặn (Denied)</th>
+                  </tr>
+                </thead>
+                <tbody id="roles-permissions-body">
+                  <!-- Filled dynamically -->
+                </tbody>
+              </table>
+            </div>
+
+            <div class="save-bar" style="margin-top: 30px;">
+              <button type="button" id="btnSavePermissions" class="btn-action" style="width: auto; padding: 15px 40px;">Lưu Quyền Hạn</button>
+            </div>
           </div>
         </div>
       </section>
