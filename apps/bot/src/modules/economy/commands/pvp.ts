@@ -195,8 +195,8 @@ export default class PvpCommand implements ICommand {
     challengeCollector.on('end', async (_, reason) => {
       if (reason === 'accepted' && isAccepted) {
         // Đặt khóa Active Game Lock cho cả 2 người chơi
-        kernel.cache.set(`active_game:${challengerId}`, true, 600);
-        kernel.cache.set(`active_game:${opponentId}`, true, 600);
+        kernel.cache.set(`active_game:${challengerId}`, true, 1800);
+        kernel.cache.set(`active_game:${opponentId}`, true, 1800);
 
         // Khởi chạy game cụ thể
         if (gameType === 'POKER') {
@@ -408,7 +408,7 @@ export default class PvpCommand implements ICommand {
 
       const gameCollector = gameMsg.createMessageComponentCollector({
         componentType: ComponentType.Button,
-        time: 120000 // 2 phút cho ván đấu
+        idle: 300000
       });
 
 
@@ -882,7 +882,7 @@ export default class PvpCommand implements ICommand {
 
       const gameCollector = gameMsg.createMessageComponentCollector({
         componentType: ComponentType.Button,
-        time: 180000
+        idle: 300000
       });
 
       let gameEnded = false;

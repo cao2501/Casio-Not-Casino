@@ -21,6 +21,120 @@ export class CardDrawer {
     S: '#1E293B', // Dark slate
   };
 
+  private static drawSuitPath(
+    ctx: CanvasRenderingContext2D,
+    suit: Card['suit'],
+    centerX: number,
+    centerY: number,
+    size: number
+  ): void {
+    ctx.save();
+    switch (suit) {
+      case 'D': { // Diamond
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY - size / 2);
+        ctx.lineTo(centerX + size / 2, centerY);
+        ctx.lineTo(centerX, centerY + size / 2);
+        ctx.lineTo(centerX - size / 2, centerY);
+        ctx.closePath();
+        ctx.fill();
+        break;
+      }
+      case 'H': { // Heart
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY - size * 0.2);
+        ctx.bezierCurveTo(
+          centerX - size * 0.2, centerY - size * 0.5,
+          centerX - size * 0.55, centerY - size * 0.45,
+          centerX - size * 0.5, centerY - size * 0.1
+        );
+        ctx.bezierCurveTo(
+          centerX - size * 0.45, centerY + size * 0.2,
+          centerX - size * 0.15, centerY + size * 0.35,
+          centerX, centerY + size * 0.5
+        );
+        ctx.bezierCurveTo(
+          centerX + size * 0.15, centerY + size * 0.35,
+          centerX + size * 0.45, centerY + size * 0.2,
+          centerX + size * 0.5, centerY - size * 0.1
+        );
+        ctx.bezierCurveTo(
+          centerX + size * 0.55, centerY - size * 0.45,
+          centerX + size * 0.2, centerY - size * 0.5,
+          centerX, centerY - size * 0.2
+        );
+        ctx.closePath();
+        ctx.fill();
+        break;
+      }
+      case 'S': { // Spade
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY - size * 0.5);
+        ctx.bezierCurveTo(
+          centerX - size * 0.15, centerY - size * 0.35,
+          centerX - size * 0.45, centerY - size * 0.2,
+          centerX - size * 0.5, centerY + size * 0.1
+        );
+        ctx.bezierCurveTo(
+          centerX - size * 0.55, centerY + size * 0.45,
+          centerX - size * 0.2, centerY + size * 0.5,
+          centerX, centerY + size * 0.2
+        );
+        ctx.bezierCurveTo(
+          centerX + size * 0.2, centerY + size * 0.5,
+          centerX + size * 0.55, centerY + size * 0.45,
+          centerX + size * 0.5, centerY + size * 0.1
+        );
+        ctx.bezierCurveTo(
+          centerX + size * 0.45, centerY - size * 0.2,
+          centerX + size * 0.15, centerY - size * 0.35,
+          centerX, centerY - size * 0.5
+        );
+        ctx.closePath();
+        ctx.fill();
+
+        // Stem
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY + size * 0.1);
+        ctx.quadraticCurveTo(centerX - size * 0.15, centerY + size * 0.5, centerX - size * 0.25, centerY + size * 0.5);
+        ctx.lineTo(centerX + size * 0.25, centerY + size * 0.5);
+        ctx.quadraticCurveTo(centerX + size * 0.15, centerY + size * 0.5, centerX, centerY + size * 0.1);
+        ctx.closePath();
+        ctx.fill();
+        break;
+      }
+      case 'C': { // Club
+        const r = size * 0.22;
+        ctx.beginPath();
+        ctx.arc(centerX, centerY - size * 0.15, r, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.beginPath();
+        ctx.arc(centerX - size * 0.17, centerY + size * 0.08, r, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.beginPath();
+        ctx.arc(centerX + size * 0.17, centerY + size * 0.08, r, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(centerX, centerY + size * 0.03, r * 0.8, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Stem
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY + size * 0.05);
+        ctx.quadraticCurveTo(centerX - size * 0.15, centerY + size * 0.5, centerX - size * 0.25, centerY + size * 0.5);
+        ctx.lineTo(centerX + size * 0.25, centerY + size * 0.5);
+        ctx.quadraticCurveTo(centerX + size * 0.15, centerY + size * 0.5, centerX, centerY + size * 0.05);
+        ctx.closePath();
+        ctx.fill();
+        break;
+      }
+    }
+    ctx.restore();
+  }
+
   /**
    * Draw a single playing card on the canvas context
    */
@@ -94,7 +208,6 @@ export class CardDrawer {
 
       ctx.shadowColor = 'transparent';
 
-      const suitSym = this.suitSymbols[card.suit];
       const color = this.suitColors[card.suit];
 
       // Draw rank & suit on top-left
@@ -104,8 +217,7 @@ export class CardDrawer {
       ctx.textBaseline = 'top';
       ctx.fillText(card.value, x + 8, y + 8);
       
-      ctx.font = '16px "Segoe UI", Arial';
-      ctx.fillText(suitSym, x + 8, y + 30);
+      this.drawSuitPath(ctx, card.suit, x + 16, y + 38, 14);
 
       // Draw rank & suit on bottom-right (rotated)
       ctx.save();
@@ -114,17 +226,13 @@ export class CardDrawer {
       ctx.textAlign = 'left';
       ctx.textBaseline = 'top';
       ctx.fillText(card.value, 0, 0);
-      ctx.font = '16px "Segoe UI", Arial';
-      ctx.fillText(suitSym, 0, 22);
+      this.drawSuitPath(ctx, card.suit, 8, 29, 14);
       ctx.restore();
 
       // Draw large central symbol
       ctx.save();
       ctx.fillStyle = color;
-      ctx.font = 'bold 48px "Segoe UI", Arial';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(suitSym, x + w / 2, y + h / 2);
+      this.drawSuitPath(ctx, card.suit, x + w / 2, y + h / 2, 44);
       ctx.restore();
     }
 
