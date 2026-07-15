@@ -56,7 +56,7 @@ export class Kernel {
     // 1. Connect to database
     logger.info('📦 Connecting to database...');
     await this.db.$connect();
-    await this.db.$executeRawUnsafe('PRAGMA journal_mode=WAL;');
+    await this.db.$queryRawUnsafe('PRAGMA journal_mode=WAL;');
     logger.info('✅ Database connected & WAL mode activated');
 
     // 2. Load all modules
