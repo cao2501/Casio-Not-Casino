@@ -51,6 +51,14 @@ export default class PvpCommand implements ICommand {
         .setName('opponent')
         .setDescription('Thành viên bạn muốn thách đấu')
         .setRequired(true)
+    )
+    .addIntegerOption(opt =>
+      opt
+        .setName('amount')
+        .setDescription('Số lượng bài rút (1-5 lá, chỉ áp dụng cho game Bài Ngẫu Nhiên PvP)')
+        .setRequired(false)
+        .setMinValue(1)
+        .setMaxValue(5)
     );
 
   async execute(interaction: ChatInputCommandInteraction, kernel: Kernel): Promise<void> {
@@ -1310,12 +1318,7 @@ export default class PvpCommand implements ICommand {
     }
 
     async function startRandomCardGame() {
-      const valuesMap: Record<string, number> = {
-        '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10, 'J': 11, 'Q': 12, 'K': 13, 'A': 14
-      };
-      const suitsMap: Record<Card['suit'], number> = {
-        'S': 1, 'C': 2, 'D': 3, 'H': 4
-      };
+      const amount = interaction.options.getInteger('amount') ?? 1;
 
       const suitsVi: Record<Card['suit'], string> = {
         H: 'Cơ ♥',
@@ -1325,51 +1328,218 @@ export default class PvpCommand implements ICommand {
       };
 
       const deck = getDeck();
-      const p1Card = deck.pop()!;
-      const p2Card = deck.pop()!;
+      const p1Hand: Card[] = [];
+      const p2Hand: Card[] = [];
+      for (let i = 0; i < amount; i++) {
+        p1Hand.push(deck.pop()!);
+        p2Hand.push(deck.pop()!);
+      }
 
-      const p1Score = valuesMap[p1Card.value] * 10 + suitsMap[p1Card.suit];
-      const p2Score = valuesMap[p2Card.value] * 10 + suitsMap[p2Card.suit];
+      const p1Flipped = new Array(amount).fill(false);
+      const p2Flipped = new Array(amount).fill(false);
       const pot = bet * 2;
-
-      let outcome = '';
-      let winColor = 0xF6C453;
 
       const p1Name = interaction.user.username;
       const p2Name = opponentUser.username;
 
-      const p1CardText = `**${p1Card.value}** ${suitsVi[p1Card.suit]}`;
-      const p2CardText = `**${p2Card.value}** ${suitsVi[p2Card.suit]}`;
+      // Helper tạo chuỗi mô tả bài
+      const getHandText = (hand: Card[], flipped: boolean[]): string => {
+        return hand
+          .map((c, idx) => {
+            if (flipped[idx]) {
+              return `**${c.value}** ${suitsVi[c.suit]}`;
+            }
+            return `\`[Úp 🔒]\``;
+          })
+          .join(', ');
+      };
 
-      if (p1Score > p2Score) {
-        outcome = `🏆 **${p1Name}** chiến thắng! (${p1CardText} lớn hơn ${p2CardText})`;
-        winColor = 0x57F287;
-        await updatePlayerBalance(challengerId, p1Name, pot, true);
-      } else {
-        outcome = `🏆 **${p2Name}** chiến thắng! (${p2CardText} lớn hơn ${p1CardText})`;
-        winColor = 0x57F287;
-        await updatePlayerBalance(opponentId, p2Name, pot, true);
+      const getTableBuffer = async (outcome?: string) => {
+        return CardDrawer.drawPvpCardsTable(
+          p1Hand,
+          p2Hand,
+          p1Flipped,
+          p2Flipped,
+          p1Name,
+          p2Name,
+          bet,
+          currency,
+          outcome
+        );
+      };
+
+      let buffer = await getTableBuffer();
+      let attachment = new AttachmentBuilder(buffer, { name: `rc-pvp_${Date.now()}.png` });
+
+      const getButtons = () => {
+        const p1All = p1Flipped.every(v => v === true);
+        const p2All = p2Flipped.every(v => v === true);
+        const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+          new ButtonBuilder()
+            .setCustomId('rnd_pvp:draw')
+            .setLabel('Rút 1 lá (Draw)')
+            .setStyle(ButtonStyle.Success)
+            .setEmoji('➕')
+            .setDisabled(p1All && p2All),
+          new ButtonBuilder()
+            .setCustomId('rnd_pvp:reveal')
+            .setLabel('Mở tất cả (Reveal)')
+            .setStyle(ButtonStyle.Primary)
+            .setEmoji('👁️')
+            .setDisabled(p1All && p2All)
+        );
+        return [row];
+      };
+
+      const getEmbed = (fileName: string) => {
+        const p1Count = p1Flipped.filter(v => v).length;
+        const p2Count = p2Flipped.filter(v => v).length;
+
+        return new EmbedBuilder()
+          .setTitle('🃏 Bài Ngẫu Nhiên PvP (Interactive)')
+          .setColor(0x103f6b)
+          .setDescription(`⚔️ **${p1Name}** vs **${p2Name}**\n\n🃏 **${p1Name}** (Đã lật ${p1Count}/${amount}):\n👉 ${getHandText(p1Hand, p1Flipped)}\n\n🃏 **${p2Name}** (Đã lật ${p2Count}/${amount}):\n👉 ${getHandText(p2Hand, p2Flipped)}\n\n*Bấm nút bên dưới để tự rút/lật lá bài tiếp theo của bạn!*`)
+          .setImage(`attachment://${fileName}`)
+          .setTimestamp();
+      };
+
+      const gameMsg = await interaction.editReply({
+        embeds: [getEmbed(attachment.name!)],
+        files: [attachment],
+        components: getButtons()
+      });
+
+      const gameCollector = gameMsg.createMessageComponentCollector({
+        componentType: ComponentType.Button,
+        idle: 90000
+      });
+
+      gameCollector.on('collect', async i => {
+        if (i.user.id !== challengerId && i.user.id !== opponentId) {
+          return void i.reply({ content: '❌ Bạn không tham gia ván đấu này!', ephemeral: true });
+        }
+
+        await i.deferUpdate();
+
+        if (i.customId === 'rnd_pvp:draw') {
+          if (i.user.id === challengerId) {
+            const nextIdx = p1Flipped.indexOf(false);
+            if (nextIdx !== -1) {
+              p1Flipped[nextIdx] = true;
+            } else {
+              return void i.followUp({ content: '❌ Bạn đã lật hết bài của mình!', ephemeral: true });
+            }
+          } else {
+            const nextIdx = p2Flipped.indexOf(false);
+            if (nextIdx !== -1) {
+              p2Flipped[nextIdx] = true;
+            } else {
+              return void i.followUp({ content: '❌ Bạn đã lật hết bài của mình!', ephemeral: true });
+            }
+          }
+        } else if (i.customId === 'rnd_pvp:reveal') {
+          p1Flipped.fill(true);
+          p2Flipped.fill(true);
+        }
+
+        // Kiểm tra xem cả hai bên đã lật hết chưa
+        const p1All = p1Flipped.every(v => v === true);
+        const p2All = p2Flipped.every(v => v === true);
+        if (p1All && p2All) {
+          gameCollector.stop('showdown');
+          return;
+        }
+
+        // Cập nhật giao diện
+        attachment = await getAttachmentFilename();
+        await interaction.editReply({
+          embeds: [getEmbed(attachment.name!)],
+          files: [attachment],
+          components: getButtons()
+        });
+      });
+
+      async function getAttachmentFilename() {
+        const buf = await getTableBuffer();
+        return new AttachmentBuilder(buf, { name: `rc-pvp_${Date.now()}.png` });
       }
 
-      // Xóa khóa phiên chơi
-      kernel.cache.del(`active_game:${challengerId}`);
-      kernel.cache.del(`active_game:${opponentId}`);
+      gameCollector.on('end', async (_, reason) => {
+        let outcome = '';
+        let winColor = 0xF6C453;
 
-      // Draw cards image using CardDrawer
-      const buffer = await CardDrawer.drawRandomCards([p1Card, p2Card]);
-      const attachment = new AttachmentBuilder(buffer, { name: 'random-cards-pvp.png' });
+        if (reason === 'showdown' || reason === 'user' || reason === 'all_flipped') {
+          // Bảo đảm lật tất cả
+          p1Flipped.fill(true);
+          p2Flipped.fill(true);
 
-      const resultEmbed = new EmbedBuilder()
-        .setTitle('🃏 Kết Quả Bài Ngẫu Nhiên PvP')
-        .setColor(winColor)
-        .setDescription(`⚔️ **${p1Name}** vs **${p2Name}**\n\n🃏 **${p1Name}** rút được: ${p1CardText}\n🃏 **${p2Name}** rút được: ${p2CardText}\n\n👉 Kết quả: **${outcome}**\n💰 Tổng Pot giải quyết: **${currency === 'VND' ? `${pot.toLocaleString('vi-VN')} ₫` : `${pot.toLocaleString()} Coins`}**`)
-        .setImage('attachment://random-cards-pvp.png')
-        .setTimestamp();
+          const getHandScore = (hand: Card[]): { val: number; suitVal: number; card: Card } => {
+            const valuesMap: Record<string, number> = {
+              '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10, 'J': 11, 'Q': 12, 'K': 13, 'A': 14
+            };
+            const suitsMap: Record<Card['suit'], number> = {
+              'S': 1, 'C': 2, 'D': 3, 'H': 4
+            };
 
-      await interaction.editReply({
-        embeds: [resultEmbed],
-        files: [attachment],
-        components: []
+            let bestCard = hand[0];
+            let maxScore = valuesMap[hand[0].value] * 10 + suitsMap[hand[0].suit];
+
+            for (const card of hand) {
+              const score = valuesMap[card.value] * 10 + suitsMap[card.suit];
+              if (score > maxScore) {
+                maxScore = score;
+                bestCard = card;
+              }
+            }
+
+            return { val: valuesMap[bestCard.value], suitVal: suitsMap[bestCard.suit], card: bestCard };
+          };
+
+          const p1Best = getHandScore(p1Hand);
+          const p2Best = getHandScore(p2Hand);
+
+          const p1CardText = `**${p1Best.card.value}** ${suitsVi[p1Best.card.suit]}`;
+          const p2CardText = `**${p2Best.card.value}** ${suitsVi[p2Best.card.suit]}`;
+
+          const p1Score = p1Best.val * 10 + p1Best.suitVal;
+          const p2Score = p2Best.val * 10 + p2Best.suitVal;
+
+          if (p1Score > p2Score) {
+            outcome = `🏆 **${p1Name}** chiến thắng! (${p1CardText} lớn hơn ${p2CardText})`;
+            winColor = 0x57F287;
+            await updatePlayerBalance(challengerId, p1Name, pot, true);
+          } else {
+            outcome = `🏆 **${p2Name}** chiến thắng! (${p2CardText} lớn hơn ${p1CardText})`;
+            winColor = 0x57F287;
+            await updatePlayerBalance(opponentId, p2Name, pot, true);
+          }
+        } else {
+          // Hết giờ, hoàn cược
+          outcome = '❌ Trận đấu bị hủy do hết thời gian rút bài!';
+          winColor = 0xED4245;
+          await updatePlayerBalance(challengerId, p1Name, bet, true);
+          await updatePlayerBalance(opponentId, p2Name, bet, true);
+        }
+
+        // Xóa khóa phiên chơi
+        kernel.cache.del(`active_game:${challengerId}`);
+        kernel.cache.del(`active_game:${opponentId}`);
+
+        const finalBuffer = await getTableBuffer(outcome);
+        const finalAttachment = new AttachmentBuilder(finalBuffer, { name: `rc-pvp_${Date.now()}.png` });
+
+        const finalEmbed = new EmbedBuilder()
+          .setTitle('🃏 Kết Quả Bài Ngẫu Nhiên PvP')
+          .setColor(winColor)
+          .setDescription(`⚔️ **${p1Name}** vs **${p2Name}**\n\n🃏 Bài **${p1Name}**:\n👉 ${getHandText(p1Hand, p1Flipped)}\n\n🃏 Bài **${p2Name}**:\n👉 ${getHandText(p2Hand, p2Flipped)}\n\n👉 Kết quả: **${outcome}**\n💰 Tổng Pot giải quyết: **${currency === 'VND' ? `${pot.toLocaleString('vi-VN')} ₫` : `${pot.toLocaleString()} Coins`}**`)
+          .setImage(`attachment://${finalAttachment.name}`)
+          .setTimestamp();
+
+        await interaction.editReply({
+          embeds: [finalEmbed],
+          files: [finalAttachment],
+          components: []
+        });
       });
     }
   }
