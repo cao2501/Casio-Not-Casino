@@ -1438,8 +1438,11 @@ export default class PvpCommand implements ICommand {
             }
           }
         } else if (i.customId === 'rnd_pvp:reveal') {
-          p1Flipped.fill(true);
-          p2Flipped.fill(true);
+          if (i.user.id === challengerId) {
+            p1Flipped.fill(true);
+          } else {
+            p2Flipped.fill(true);
+          }
         }
 
         // Kiểm tra xem cả hai bên đã lật hết chưa
