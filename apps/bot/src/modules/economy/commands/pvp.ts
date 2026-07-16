@@ -75,10 +75,22 @@ export default class PvpCommand implements ICommand {
     const challengerLock = kernel.cache.get(`active_game:${challengerId}`);
     const opponentLock = kernel.cache.get(`active_game:${opponentId}`);
     if (challengerLock) {
-      return void interaction.editReply({ content: '❌ Bạn đang ở trong một phiên chơi khác chưa hoàn thành! Hãy hoàn thành ván đó trước.' });
+      const lockTime = typeof challengerLock === 'number' ? challengerLock : 0;
+      if (Date.now() - lockTime > 180000) {
+        kernel.cache.del(`active_game:${challengerId}`);
+      } else {
+        const remaining = Math.ceil((180000 - (Date.now() - lockTime)) / 1000);
+        return void interaction.editReply({ content: `❌ Bạn đang ở trong một phiên chơi khác chưa hoàn thành! Vui lòng hoàn thành hoặc chờ **${remaining}** giây để phiên cũ tự hủy.` });
+      }
     }
     if (opponentLock) {
-      return void interaction.editReply({ content: '❌ Đối thủ đang ở trong một phiên chơi khác chưa hoàn thành! Không thể thách đấu lúc này.' });
+      const lockTime = typeof opponentLock === 'number' ? opponentLock : 0;
+      if (Date.now() - lockTime > 180000) {
+        kernel.cache.del(`active_game:${opponentId}`);
+      } else {
+        const remaining = Math.ceil((180000 - (Date.now() - lockTime)) / 1000);
+        return void interaction.editReply({ content: `❌ Đối thủ đang ở trong một phiên chơi khác chưa hoàn thành! Không thể thách đấu lúc này (hoặc chờ **${remaining}** giây để tự giải phóng).` });
+      }
     }
 
     // Lấy loại tiền cược cá nhân của Người thách đấu để áp dụng
@@ -195,8 +207,8 @@ export default class PvpCommand implements ICommand {
     challengeCollector.on('end', async (_, reason) => {
       if (reason === 'accepted' && isAccepted) {
         // Đặt khóa Active Game Lock cho cả 2 người chơi
-        kernel.cache.set(`active_game:${challengerId}`, true, 1800);
-        kernel.cache.set(`active_game:${opponentId}`, true, 1800);
+        kernel.cache.set(`active_game:${challengerId}`, Date.now(), 1800);
+        kernel.cache.set(`active_game:${opponentId}`, Date.now(), 1800);
 
         // Khởi chạy game cụ thể
         if (gameType === 'POKER') {
@@ -408,7 +420,7 @@ export default class PvpCommand implements ICommand {
 
       const gameCollector = gameMsg.createMessageComponentCollector({
         componentType: ComponentType.Button,
-        idle: 300000
+        idle: 90000
       });
 
 
@@ -882,7 +894,7 @@ export default class PvpCommand implements ICommand {
 
       const gameCollector = gameMsg.createMessageComponentCollector({
         componentType: ComponentType.Button,
-        idle: 300000
+        idle: 90000
       });
 
       let gameEnded = false;

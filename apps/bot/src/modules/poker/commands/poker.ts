@@ -41,7 +41,13 @@ export default class PokerCommand implements ICommand {
 
     const activeLock = kernel.cache.get(`active_game:${userId}`);
     if (activeLock) {
-      return void interaction.editReply({ content: '❌ Bạn đang ở trong một phiên chơi khác chưa hoàn thành! Hãy hoàn thành ván đó trước.' });
+      const lockTime = typeof activeLock === 'number' ? activeLock : 0;
+      if (Date.now() - lockTime > 120000) {
+        kernel.cache.del(`active_game:${userId}`);
+      } else {
+        const remainingSec = Math.ceil((120000 - (Date.now() - lockTime)) / 1000);
+        return void interaction.editReply({ content: `❌ Bạn đang ở trong một phiên chơi khác chưa hoàn thành! Vui lòng hoàn thành ván đó hoặc đợi **${remainingSec}** giây để phiên cũ tự hủy.` });
+      }
     }
 
     // Lấy cấu hình tiền cược cá nhân của user
@@ -81,7 +87,7 @@ export default class PokerCommand implements ICommand {
     }
 
     // Kích hoạt khóa phòng chơi sau khi kiểm tra số dư thành công
-    kernel.cache.set(`active_game:${userId}`, true, 1800);
+    kernel.cache.set(`active_game:${userId}`, Date.now(), 1800);
 
     // Tiền cược hiện tại của người chơi và của bot
     let playerTotalBet = startingBet;
@@ -316,7 +322,7 @@ export default class PokerCommand implements ICommand {
     const collector = msg.createMessageComponentCollector({
       componentType: ComponentType.Button,
       filter: i => i.user.id === userId,
-      idle: 300000
+      idle: 60000
     });
 
     let gameEnded = false;
