@@ -596,7 +596,7 @@ export class CardDrawer {
   /**
    * Draw a set of random cards
    */
-  public static async drawRandomCards(cards: Card[]): Promise<Buffer> {
+  public static async drawRandomCards(cards: Card[], flippedStates?: boolean[]): Promise<Buffer> {
     const cardWidth = 85;
     const cardHeight = 130;
     const gap = 15;
@@ -620,7 +620,8 @@ export class CardDrawer {
     cards.forEach((card, index) => {
       const x = padding + index * (cardWidth + gap);
       const y = padding;
-      this.drawPlayingCard(ctx, card, x, y, cardWidth, cardHeight, false);
+      const isHidden = flippedStates ? !flippedStates[index] : false;
+      this.drawPlayingCard(ctx, card, x, y, cardWidth, cardHeight, isHidden);
     });
 
     return canvas.toBuffer('image/png');
