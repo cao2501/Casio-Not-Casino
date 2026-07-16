@@ -626,4 +626,161 @@ export class CardDrawer {
 
     return canvas.toBuffer('image/png');
   }
+
+  /**
+   * Draw a felt table for Random Card PvP with 2 rows of cards (one for each player)
+   */
+  public static async drawPvpCardsTable(
+    p1Hand: Card[],
+    p2Hand: Card[],
+    p1Flipped: boolean[],
+    p2Flipped: boolean[],
+    p1Name: string,
+    p2Name: string,
+    bet: number,
+    currency: 'COIN' | 'VND',
+    outcomeText?: string
+  ): Promise<Buffer> {
+    const width = 800;
+    const height = 400;
+    const canvas = createCanvas(width, height);
+    const ctx = canvas.getContext('2d');
+
+    // 1. Draw felt background (royal blue gradient)
+    const tableGrad = ctx.createRadialGradient(width / 2, height / 2, 100, width / 2, height / 2, 500);
+    tableGrad.addColorStop(0, '#103f6b'); // Dark Blue felt
+    tableGrad.addColorStop(1, '#081e33');
+    ctx.fillStyle = tableGrad;
+    ctx.fillRect(0, 0, width, height);
+
+    // Border lines
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(20, 20, width - 40, height - 40);
+
+    // Title on felt
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.04)';
+    ctx.font = 'bold 36px "Segoe UI", Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('RANDOM CARD PVP', width / 2, height / 2 - 10);
+
+    const cardWidth = 70;
+    const cardHeight = 100;
+    const gap = 15;
+
+    // Draw Player 1 Hand (Top)
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = 'bold 16px "Segoe UI", Arial';
+    ctx.textAlign = 'left';
+    ctx.fillText(p1Name.toUpperCase(), 50, 45);
+
+    p1Hand.forEach((card, index) => {
+      const x = 50 + index * (cardWidth + gap);
+      const y = 65;
+      const isHidden = !p1Flipped[index];
+      this.drawPlayingCard(ctx, card, x, y, cardWidth, cardHeight, isHidden);
+    });
+
+    // Draw Player 2 Hand (Bottom)
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = 'bold 16px "Segoe UI", Arial';
+    ctx.textAlign = 'left';
+    ctx.fillText(p2Name.toUpperCase(), 50, 215);
+
+    p2Hand.forEach((card, index) => {
+      const x = 50 + index * (cardWidth + gap);
+      const y = 235;
+      const isHidden = !p2Flipped[index];
+      this.drawPlayingCard(ctx, card, x, y, cardWidth, cardHeight, isHidden);
+    });
+
+    // Draw Bet Box (Right side)
+    ctx.save();
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.7)';
+    ctx.beginPath();
+    const boxX = 530;
+    const boxY = 65;
+    const boxW = 220;
+    const boxH = 100;
+    const r = 10;
+    ctx.moveTo(boxX + r, boxY);
+    ctx.lineTo(boxX + boxW - r, boxY);
+    ctx.quadraticCurveTo(boxX + boxW, boxY, boxX + boxW, boxY + r);
+    ctx.lineTo(boxX + boxW, boxY + boxH - r);
+    ctx.quadraticCurveTo(boxX + boxW, boxY + boxH, boxX + boxW - r, boxY + boxH);
+    ctx.lineTo(boxX + r, boxY + boxH);
+    ctx.quadraticCurveTo(boxX, boxY + boxH, boxX, boxY + boxH - r);
+    ctx.lineTo(boxX, boxY + r);
+    ctx.quadraticCurveTo(boxX, boxY, boxX + r, boxY);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = Theme.colors.accentGold;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.fillStyle = Theme.colors.textSecondary;
+    ctx.font = 'bold 12px "Segoe UI", Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('MỨC CƯỢC MỖI BÊN', boxX + boxW / 2, boxY + 35);
+
+    const formattedBet = currency === 'VND' ? `${bet.toLocaleString('vi-VN')} ₫` : `${bet.toLocaleString()} Coins`;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = 'bold 20px "Segoe UI", Arial';
+    ctx.fillText(formattedBet, boxX + boxW / 2, boxY + 68);
+    ctx.restore();
+
+    // Draw Outcome Box if finished
+    if (outcomeText) {
+      ctx.save();
+      const bannerX = 515;
+      const bannerY = 215;
+      const bannerW = 250;
+      const bannerH = 120;
+
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.95)';
+      ctx.beginPath();
+      ctx.moveTo(bannerX + 10, bannerY);
+      ctx.lineTo(bannerX + bannerW - 10, bannerY);
+      ctx.quadraticCurveTo(bannerX + bannerW, bannerY, bannerX + bannerW, bannerY + 10);
+      ctx.lineTo(bannerX + bannerW, bannerY + bannerH - 10);
+      ctx.quadraticCurveTo(bannerX + bannerW, bannerY + bannerH, bannerX + bannerW - 10, bannerY + bannerH);
+      ctx.lineTo(bannerX + 10, bannerY + bannerH);
+      ctx.quadraticCurveTo(bannerX, bannerY + bannerH, bannerX, bannerY + bannerH - 10);
+      ctx.lineTo(bannerX, bannerY + 10);
+      ctx.quadraticCurveTo(bannerX, bannerY, bannerX + 10, bannerY);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = Theme.colors.accentGold;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Determine outcome color
+      let color = Theme.colors.accentGold;
+      if (outcomeText.includes('chiến thắng') || outcomeText.includes('thắng')) color = Theme.colors.success;
+      if (outcomeText.includes('HÒA')) color = Theme.colors.info;
+      if (outcomeText.includes('huỷ')) color = Theme.colors.danger;
+
+      ctx.fillStyle = color;
+      ctx.font = 'bold 13px "Segoe UI", Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      
+      const words = outcomeText.split(' ');
+      let line = '';
+      let yOffset = bannerY + 40;
+      for (const word of words) {
+        if (ctx.measureText(line + word).width > 220) {
+          ctx.fillText(line, bannerX + bannerW / 2, yOffset);
+          line = word + ' ';
+          yOffset += 20;
+        } else {
+          line += word + ' ';
+        }
+      }
+      ctx.fillText(line, bannerX + bannerW / 2, yOffset);
+      ctx.restore();
+    }
+
+    return canvas.toBuffer('image/png');
+  }
 }
