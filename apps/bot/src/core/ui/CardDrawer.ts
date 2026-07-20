@@ -783,4 +783,311 @@ export class CardDrawer {
 
     return canvas.toBuffer('image/png');
   }
+
+  /**
+   * Draw a felt table for 4-Player Blackjack PvP
+   */
+  public static async drawBlackjack4PTable(
+    hands: Card[][],
+    scores: number[],
+    playerNames: string[],
+    bet: number,
+    currency: 'COIN' | 'VND',
+    activePlayerIndex: number,
+    isOngoing: boolean,
+    outcomeText?: string
+  ): Promise<Buffer> {
+    const width = 900;
+    const height = 600;
+    const canvas = createCanvas(width, height);
+    const ctx = canvas.getContext('2d');
+
+    // 1. Draw Table background (green gradient felt)
+    const tableGrad = ctx.createRadialGradient(width / 2, height / 2, 100, width / 2, height / 2, 550);
+    tableGrad.addColorStop(0, '#105B34'); // Lighter felt green
+    tableGrad.addColorStop(1, '#08331E'); // Dark edge green
+    ctx.fillStyle = tableGrad;
+    ctx.fillRect(0, 0, width, height);
+
+    // Draw felt lines (golden border arch)
+    ctx.strokeStyle = 'rgba(246, 196, 83, 0.2)';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(20, 20, width - 40, height - 40);
+
+    // Title
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+    ctx.font = 'bold 24px "Segoe UI", Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('BLACKJACK PVP 4 PLAYERS', width / 2, 40);
+
+    // Positions for 2x2 grid
+    const positions = [
+      { x: 50, y: 100 },
+      { x: 500, y: 100 },
+      { x: 50, y: 350 },
+      { x: 500, y: 350 }
+    ];
+
+    for (let i = 0; i < 4; i++) {
+      let title = playerNames[i];
+      if (isOngoing && i === activePlayerIndex) {
+        title = `👉 ${title} (Lượt)`;
+      }
+
+      // If finished or player is bust or has ngũ linh, show score. Otherwise hide score while game is ongoing.
+      const showScore = !isOngoing || scores[i] > 21 || hands[i].length >= 5;
+      const scoreStr = showScore ? `${scores[i]}` : undefined;
+
+      this.drawHand(
+        ctx,
+        hands[i],
+        positions[i].x,
+        positions[i].y,
+        title.toUpperCase(),
+        scoreStr,
+        false, // isDealerHidden
+        isOngoing // hideAllCards (if ongoing, hides cards from index 1)
+      );
+    }
+
+    // 4. Draw Pot info in the center
+    ctx.save();
+    ctx.fillStyle = '#1E293B';
+    const boxX = 380;
+    const boxY = 240;
+    const boxW = 140;
+    const boxH = 70;
+    const radius = 8;
+    ctx.beginPath();
+    ctx.moveTo(boxX + radius, boxY);
+    ctx.lineTo(boxX + boxW - radius, boxY);
+    ctx.quadraticCurveTo(boxX + boxW, boxY, boxX + boxW, boxY + radius);
+    ctx.lineTo(boxX + boxW, boxY + boxH - radius);
+    ctx.quadraticCurveTo(boxX + boxW, boxY + boxH, boxX + boxW - radius, boxY + boxH);
+    ctx.lineTo(boxX + radius, boxY + boxH);
+    ctx.quadraticCurveTo(boxX, boxY + boxH, boxX, boxY + boxH - radius);
+    ctx.lineTo(boxX, boxY + radius);
+    ctx.quadraticCurveTo(boxX, boxY, boxX + radius, boxY);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = Theme.colors.accentGold;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.fillStyle = Theme.colors.textSecondary;
+    ctx.font = 'bold 12px "Segoe UI", Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('TỔNG POT', boxX + boxW / 2, boxY + 22);
+
+    const pot = bet * 4;
+    const formattedPot = currency === 'VND' ? `${pot.toLocaleString('vi-VN')} ₫` : `${pot.toLocaleString()} Coins`;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = 'bold 14px "Segoe UI", Arial';
+    ctx.fillText(formattedPot, boxX + boxW / 2, boxY + 48);
+    ctx.restore();
+
+    // 5. Draw Game outcome banner if ended
+    if (outcomeText) {
+      ctx.save();
+      const bannerX = 250;
+      const bannerY = 490;
+      const bannerW = 400;
+      const bannerH = 80;
+
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.95)';
+      ctx.beginPath();
+      const br = 10;
+      ctx.moveTo(bannerX + br, bannerY);
+      ctx.lineTo(bannerX + bannerW - br, bannerY);
+      ctx.quadraticCurveTo(bannerX + bannerW, bannerY, bannerX + bannerW, bannerY + br);
+      ctx.lineTo(bannerX + bannerW, bannerY + bannerH - br);
+      ctx.quadraticCurveTo(bannerX + bannerW, bannerY + bannerH, bannerX + bannerW - br, bannerY + bannerH);
+      ctx.lineTo(bannerX + br, bannerY + bannerH);
+      ctx.quadraticCurveTo(bannerX, bannerY + bannerH, bannerX, bannerY + bannerH - br);
+      ctx.lineTo(bannerX, bannerY + br);
+      ctx.quadraticCurveTo(bannerX, bannerY, bannerX + br, bannerY);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.strokeStyle = Theme.colors.accentGold;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      let color = Theme.colors.accentGold;
+      if (outcomeText.includes('thắng') || outcomeText.includes('chiến thắng')) color = Theme.colors.success;
+      if (outcomeText.includes('HÒA')) color = Theme.colors.info;
+      if (outcomeText.includes('hết thời gian') || outcomeText.includes('huỷ')) color = Theme.colors.danger;
+
+      ctx.fillStyle = color;
+      ctx.font = 'bold 14px "Segoe UI", Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+
+      const words = outcomeText.split(' ');
+      let line = '';
+      let yOffset = bannerY + 25;
+      for (const word of words) {
+        if (ctx.measureText(line + word).width > bannerW - 40) {
+          ctx.fillText(line, bannerX + bannerW / 2, yOffset);
+          line = word + ' ';
+          yOffset += 18;
+        } else {
+          line += word + ' ';
+        }
+      }
+      ctx.fillText(line, bannerX + bannerW / 2, yOffset);
+      ctx.restore();
+    }
+
+    return canvas.toBuffer('image/png');
+  }
+
+  /**
+   * Draw a felt table for 4-Player Poker Texas Hold'em PvP
+   */
+  public static async drawPoker4PTable(
+    hands: Card[][],
+    communityCards: Card[],
+    pot: number,
+    bets: number[],
+    currency: 'COIN' | 'VND',
+    gamePhase: string,
+    playerNames: string[],
+    activePlayerIndex: number,
+    isOngoing: boolean,
+    statusText?: string
+  ): Promise<Buffer> {
+    const width = 1000;
+    const height = 700;
+    const canvas = createCanvas(width, height);
+    const ctx = canvas.getContext('2d');
+
+    // Radial felt background
+    const tableGrad = ctx.createRadialGradient(width / 2, height / 2, 100, width / 2, height / 2, 600);
+    tableGrad.addColorStop(0, '#0F4C81'); // Elegant dark blue felt
+    tableGrad.addColorStop(1, '#0B233A'); // Near black edge
+    ctx.fillStyle = tableGrad;
+    ctx.fillRect(0, 0, width, height);
+
+    // Felt inner line border
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+    ctx.lineWidth = 8;
+    ctx.strokeRect(40, 40, width - 80, height - 80);
+
+    // Title
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+    ctx.font = 'bold 36px "Segoe UI", Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('TEXAS HOLD\'EM 4P', width / 2, height / 2 - 120);
+
+    // 1. Draw Community Cards in the center
+    const cardWidth = 70;
+    const cardHeight = 100;
+    const gap = 15;
+    const boardStartX = width / 2 - (cardWidth * 5 + gap * 4) / 2; // 295
+    const boardY = height / 2 - cardHeight / 2; // 300
+
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = 'bold 14px "Segoe UI", Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('BÀI CHUNG (COMMUNITY CARDS)', width / 2, boardY - 15);
+
+    for (let i = 0; i < 5; i++) {
+      const x = boardStartX + i * (cardWidth + gap);
+      if (communityCards[i]) {
+        this.drawPlayingCard(ctx, communityCards[i], x, boardY, cardWidth, cardHeight, false);
+      } else {
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+        ctx.strokeRect(x, boardY, cardWidth, cardHeight);
+        ctx.restore();
+      }
+    }
+
+    // 2. Draw 4 Players around the table
+    // Positions: 0: Bottom, 1: Left, 2: Top, 3: Right
+    const handWidth = cardWidth * 2 + gap; // 155
+    const playerPositions = [
+      { x: width / 2 - handWidth / 2, y: 530, title: playerNames[0] }, // Bottom
+      { x: 60, y: 280, title: playerNames[1] },                       // Left
+      { x: width / 2 - handWidth / 2, y: 80, title: playerNames[2] },  // Top
+      { x: 785, y: 280, title: playerNames[3] }                       // Right
+    ];
+
+    for (let i = 0; i < 4; i++) {
+      let title = playerPositions[i].title;
+      if (isOngoing && i === activePlayerIndex) {
+        title = `👉 ${title} (Lượt)`;
+      }
+
+      const betText = bets[i] > 0 ? `Cược: ${bets[i].toLocaleString()}` : undefined;
+
+      this.drawHand(
+        ctx,
+        hands[i],
+        playerPositions[i].x,
+        playerPositions[i].y,
+        title.toUpperCase(),
+        betText,
+        isOngoing, // isDealerHidden (if ongoing, hide all cards)
+        isOngoing  // hideAllCards
+      );
+    }
+
+    // 3. Draw Pot and Info
+    ctx.save();
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.7)';
+    ctx.fillRect(width / 2 - 250, height / 2 - 210, 150, 80);
+    ctx.strokeStyle = Theme.colors.accentGold;
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(width / 2 - 250, height / 2 - 210, 150, 80);
+
+    ctx.fillStyle = Theme.colors.textSecondary;
+    ctx.font = 'bold 11px "Segoe UI", Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('TỔNG POT', width / 2 - 175, height / 2 - 185);
+
+    const formattedPot = currency === 'VND' ? `${pot.toLocaleString('vi-VN')} ₫` : `${pot.toLocaleString()} Coins`;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = 'bold 15px "Segoe UI", Arial';
+    ctx.fillText(formattedPot, width / 2 - 175, height / 2 - 160);
+
+    ctx.fillStyle = Theme.colors.accentGold;
+    ctx.font = 'bold 11px "Segoe UI", Arial';
+    ctx.fillText(gamePhase.toUpperCase(), width / 2 - 175, height / 2 - 140);
+    ctx.restore();
+
+    // 4. Draw Status/Actions
+    if (statusText) {
+      ctx.save();
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.7)';
+      ctx.fillRect(width / 2 + 100, height / 2 - 210, 150, 80);
+      ctx.strokeStyle = Theme.colors.accentGold;
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(width / 2 + 100, height / 2 - 210, 150, 80);
+
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 10px "Segoe UI", Arial';
+      ctx.textAlign = 'center';
+
+      const words = statusText.split(' ');
+      let line = '';
+      let yOffset = height / 2 - 190;
+      for (const word of words) {
+        if (ctx.measureText(line + word).width > 130) {
+          ctx.fillText(line, width / 2 + 175, yOffset);
+          line = word + ' ';
+          yOffset += 14;
+        } else {
+          line += word + ' ';
+        }
+      }
+      ctx.fillText(line, width / 2 + 175, yOffset);
+      ctx.restore();
+    }
+
+    return canvas.toBuffer('image/png');
+  }
 }

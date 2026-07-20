@@ -33,8 +33,10 @@ export default class PvpCommand implements ICommand {
         .setDescription('Chọn trò chơi bạn muốn đấu trí')
         .setRequired(true)
         .addChoices(
-          { name: 'Poker Texas Hold\'em', value: 'POKER' },
-          { name: 'Blackjack (Xì Dách PvP)', value: 'BLACKJACK' },
+          { name: 'Poker Texas Hold\'em (1v1)', value: 'POKER' },
+          { name: 'Poker Texas Hold\'em (4 Người)', value: 'POKER_4P' },
+          { name: 'Blackjack (Xì Dách PvP 1v1)', value: 'BLACKJACK' },
+          { name: 'Blackjack (Xì Dách PvP 4 Người)', value: 'BLACKJACK_4P' },
           { name: 'Random Number (Số Ngẫu Nhiên PvP)', value: 'RANDOM_NUMBER' },
           { name: 'Random Card (Bài Ngẫu Nhiên PvP)', value: 'RANDOM_CARD' }
         )
@@ -49,8 +51,20 @@ export default class PvpCommand implements ICommand {
     .addUserOption(opt =>
       opt
         .setName('opponent')
-        .setDescription('Thành viên bạn muốn thách đấu')
+        .setDescription('Đối thủ 1')
         .setRequired(true)
+    )
+    .addUserOption(opt =>
+      opt
+        .setName('opponent2')
+        .setDescription('Đối thủ 2 (Chỉ dùng cho game 4 người)')
+        .setRequired(false)
+    )
+    .addUserOption(opt =>
+      opt
+        .setName('opponent3')
+        .setDescription('Đối thủ 3 (Chỉ dùng cho game 4 người)')
+        .setRequired(false)
     )
     .addIntegerOption(opt =>
       opt
@@ -67,66 +81,79 @@ export default class PvpCommand implements ICommand {
     const opponentUser = interaction.options.getUser('opponent', true);
     const opponentId = opponentUser.id;
     const bet = interaction.options.getInteger('bet', true);
-    const gameType = interaction.options.getString('game', true) as 'POKER' | 'BLACKJACK' | 'RANDOM_NUMBER' | 'RANDOM_CARD';
+    const gameType = interaction.options.getString('game', true) as 'POKER' | 'POKER_4P' | 'BLACKJACK' | 'BLACKJACK_4P' | 'RANDOM_NUMBER' | 'RANDOM_CARD';
 
     await interaction.deferReply();
 
-    // 1. Kiểm tra các điều kiện hợp lệ
-    if (challengerId === opponentId) {
-      return void interaction.editReply({ content: '❌ Bạn không thể tự thách đấu chính mình!' });
-    }
-    if (opponentUser.bot) {
-      return void interaction.editReply({ content: '❌ Bạn không thể thách đấu với Bot.' });
+    const is4PlayerGame = gameType === 'POKER_4P' || gameType === 'BLACKJACK_4P';
+    const opponentUser2 = interaction.options.getUser('opponent2');
+    const opponentUser3 = interaction.options.getUser('opponent3');
+
+    if (is4PlayerGame) {
+      if (!opponentUser2 || !opponentUser3) {
+        return void interaction.editReply({ content: '❌ Để chơi chế độ PvP 4 người, bạn phải chọn đủ 3 đối thủ bằng cách điền các tuỳ chọn opponent, opponent2 và opponent3!' });
+      }
     }
 
-    // Kiểm tra Khóa phiên chơi (Active Game Lock) của cả 2
-    const challengerLock = kernel.cache.get(`active_game:${challengerId}`);
-    const opponentLock = kernel.cache.get(`active_game:${opponentId}`);
-    if (challengerLock) {
-      const lockTime = typeof challengerLock === 'number' ? challengerLock : 0;
-      if (Date.now() - lockTime > 180000) {
-        kernel.cache.del(`active_game:${challengerId}`);
-      } else {
-        const remaining = Math.ceil((180000 - (Date.now() - lockTime)) / 1000);
-        return void interaction.editReply({ content: `❌ Bạn đang ở trong một phiên chơi khác chưa hoàn thành! Vui lòng hoàn thành hoặc chờ **${remaining}** giây để phiên cũ tự hủy.` });
+    const opponents = [opponentUser];
+    if (is4PlayerGame && opponentUser2 && opponentUser3) {
+      opponents.push(opponentUser2, opponentUser3);
+    }
+
+    const allUsers = [interaction.user, ...opponents];
+    const allUserIds = allUsers.map(u => u.id);
+    const uniqueUserIds = new Set(allUserIds);
+    if (uniqueUserIds.size !== allUsers.length) {
+      return void interaction.editReply({ content: '❌ Các người chơi thách đấu phải là những người khác nhau và không trùng với bạn!' });
+    }
+
+    for (const u of opponents) {
+      if (u.bot) {
+        return void interaction.editReply({ content: '❌ Bạn không thể thách đấu với Bot.' });
       }
     }
-    if (opponentLock) {
-      const lockTime = typeof opponentLock === 'number' ? opponentLock : 0;
-      if (Date.now() - lockTime > 180000) {
-        kernel.cache.del(`active_game:${opponentId}`);
-      } else {
-        const remaining = Math.ceil((180000 - (Date.now() - lockTime)) / 1000);
-        return void interaction.editReply({ content: `❌ Đối thủ đang ở trong một phiên chơi khác chưa hoàn thành! Không thể thách đấu lúc này (hoặc chờ **${remaining}** giây để tự giải phóng).` });
+
+    // Kiểm tra Khóa phiên chơi (Active Game Lock) của tất cả
+    for (const u of allUsers) {
+      const lock = kernel.cache.get(`active_game:${u.id}`);
+      if (lock) {
+        const lockTime = typeof lock === 'number' ? lock : 0;
+        if (Date.now() - lockTime > 180000) {
+          kernel.cache.del(`active_game:${u.id}`);
+        } else {
+          const remaining = Math.ceil((180000 - (Date.now() - lockTime)) / 1000);
+          const name = u.id === challengerId ? 'Bạn' : `Người chơi <@${u.id}>`;
+          return void interaction.editReply({ content: `❌ ${name} đang ở trong một phiên chơi khác chưa hoàn thành! Vui lòng chờ **${remaining}** giây để phiên cũ tự hủy.` });
+        }
       }
+    }
+
+    // Đảm bảo thông tin người dùng được khởi tạo trong DB
+    for (const u of allUsers) {
+      await ensureMember(guildId, u.id);
+    }
+
+    const memberDbs: Record<string, any> = {};
+    for (const u of allUsers) {
+      const dbUser = await kernel.db.guildMember.findUnique({ where: { guildId_userId: { guildId, userId: u.id } } });
+      if (!dbUser) {
+        return void interaction.editReply({ content: `❌ Lỗi hệ thống: Không tìm thấy tài khoản của người chơi <@${u.id}>.` });
+      }
+      memberDbs[u.id] = dbUser;
     }
 
     // Lấy loại tiền cược cá nhân của Người thách đấu để áp dụng
     const { config: challengerPrefs } = await getModuleConfig<Record<string, 'COIN' | 'VND'>>(guildId, 'casino_user_prefs');
     const currency = challengerPrefs[challengerId] ?? 'COIN';
 
-    // Đảm bảo thông tin người dùng được khởi tạo trong DB
-    await ensureMember(guildId, challengerId);
-    await ensureMember(guildId, opponentId);
-
-    const challengerDb = await kernel.db.guildMember.findUnique({ where: { guildId_userId: { guildId, userId: challengerId } } });
-    const opponentDb = await kernel.db.guildMember.findUnique({ where: { guildId_userId: { guildId, userId: opponentId } } });
-
-    if (!challengerDb || !opponentDb) {
-      return void interaction.editReply({ content: '❌ Lỗi hệ thống: Không tìm thấy tài khoản người chơi.' });
-    }
-
-    // Kiểm tra số dư của Người thách đấu
-    const challengerBalance = currency === 'VND' ? challengerDb.vnd : challengerDb.balance;
-    if (challengerBalance < bet) {
-      const formatted = currency === 'VND' ? `${challengerBalance.toLocaleString('vi-VN')} ₫` : `${challengerBalance.toLocaleString()} Coins`;
-      return void interaction.editReply({ content: `❌ Bạn không đủ số dư!\nSố dư hiện tại: **${formatted}**` });
-    }
-
-    // Kiểm tra số dư của Đối thủ
-    const opponentBalance = currency === 'VND' ? opponentDb.vnd : opponentDb.balance;
-    if (opponentBalance < bet) {
-      return void interaction.editReply({ content: `❌ Đối thủ <@${opponentId}> không đủ số dư tương ứng để tham gia ván đấu này!` });
+    // Kiểm tra số dư của tất cả người chơi
+    for (const u of allUsers) {
+      const balance = currency === 'VND' ? memberDbs[u.id].vnd : memberDbs[u.id].balance;
+      if (balance < bet) {
+        const formatted = currency === 'VND' ? `${balance.toLocaleString('vi-VN')} ₫` : `${balance.toLocaleString()} Coins`;
+        const name = u.id === challengerId ? 'Bạn không đủ số dư!' : `Người chơi <@${u.id}> không đủ số dư tương ứng!`;
+        return void interaction.editReply({ content: `❌ ${name}\nSố dư hiện tại: **${formatted}**` });
+      }
     }
 
     // Helper giao dịch số dư
@@ -153,97 +180,1045 @@ export default class PvpCommand implements ICommand {
     // Khấu trừ tiền cược trước của Người thách đấu
     await updatePlayerBalance(challengerId, interaction.user.username, bet, false);
 
-    // 2. Gửi lời mời thách đấu
-    const gameLabel = gameType === 'POKER' 
-      ? "Poker Texas Hold'em" 
-      : gameType === 'BLACKJACK' 
-      ? 'Blackjack (Xì Dách)' 
-      : gameType === 'RANDOM_NUMBER' 
-      ? 'Random Number (Số Ngẫu Nhiên)' 
-      : 'Random Card (Bài Ngẫu Nhiên)';
-    const challengeEmbed = new EmbedBuilder()
-      .setTitle(`⚔️ Thách Đấu PvP ${gameLabel}`)
-      .setColor(0xF6C453)
-      .setDescription(`👤 <@${challengerId}> thách đấu với 👤 <@${opponentId}>\n💵 Mức cược: **${currency === 'VND' ? `${bet.toLocaleString('vi-VN')} ₫` : `${bet.toLocaleString()} Coins`}**\n\n*Đối thủ có 60 giây để đồng ý tham gia phòng chơi.*`)
-      .setTimestamp();
+    if (!is4PlayerGame) {
+      // 2. Gửi lời mời thách đấu 1v1
+      const gameLabel = gameType === 'POKER' 
+        ? "Poker Texas Hold'em" 
+        : gameType === 'BLACKJACK' 
+        ? 'Blackjack (Xì Dách)' 
+        : gameType === 'RANDOM_NUMBER' 
+        ? 'Random Number (Số Ngẫu Nhiên)' 
+        : 'Random Card (Bài Ngẫu Nhiên)';
+      const challengeEmbed = new EmbedBuilder()
+        .setTitle(`⚔️ Thách Đấu PvP ${gameLabel}`)
+        .setColor(0xF6C453)
+        .setDescription(`👤 <@${challengerId}> thách đấu với 👤 <@${opponentId}>\n💵 Mức cược: **${currency === 'VND' ? `${bet.toLocaleString('vi-VN')} ₫` : `${bet.toLocaleString()} Coins`}**\n\n*Đối thủ có 60 giây để đồng ý tham gia phòng chơi.*`)
+        .setTimestamp();
 
-    const challengeRows = new ActionRowBuilder<ButtonBuilder>().addComponents(
-      new ButtonBuilder().setCustomId('pvp:accept').setLabel('Đồng ý (Accept)').setStyle(ButtonStyle.Success).setEmoji('🤝'),
-      new ButtonBuilder().setCustomId('pvp:decline').setLabel('Từ chối / Huỷ').setStyle(ButtonStyle.Danger).setEmoji('❌')
-    );
+      const challengeRows = new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder().setCustomId('pvp:accept').setLabel('Đồng ý (Accept)').setStyle(ButtonStyle.Success).setEmoji('🤝'),
+        new ButtonBuilder().setCustomId('pvp:decline').setLabel('Từ chối / Huỷ').setStyle(ButtonStyle.Danger).setEmoji('❌')
+      );
 
-    const challengeMsg = await interaction.editReply({
-      embeds: [challengeEmbed],
-      components: [challengeRows]
-    });
+      const challengeMsg = await interaction.editReply({
+        embeds: [challengeEmbed],
+        components: [challengeRows]
+      });
 
-    const challengeCollector = challengeMsg.createMessageComponentCollector({
-      componentType: ComponentType.Button,
-      time: 60000
-    });
+      const challengeCollector = challengeMsg.createMessageComponentCollector({
+        componentType: ComponentType.Button,
+        time: 60000
+      });
 
-    let isAccepted = false;
+      let isAccepted = false;
 
-    challengeCollector.on('collect', async i => {
-      if (i.customId === 'pvp:accept') {
-        if (i.user.id !== opponentId) {
-          return void i.reply({ content: '❌ Chỉ đối thủ được thách đấu mới có thể đồng ý!', ephemeral: true });
+      challengeCollector.on('collect', async i => {
+        if (i.customId === 'pvp:accept') {
+          if (i.user.id !== opponentId) {
+            return void i.reply({ content: '❌ Chỉ đối thủ được thách đấu mới có thể đồng ý!', ephemeral: true });
+          }
+
+          const checkOpponentDb = await kernel.db.guildMember.findUnique({ where: { guildId_userId: { guildId, userId: opponentId } } });
+          const currentOpponentBal = currency === 'VND' ? checkOpponentDb?.vnd ?? 0 : checkOpponentDb?.balance ?? 0;
+
+          if (currentOpponentBal < bet) {
+            return void i.reply({ content: '❌ Bạn không đủ số dư để tham gia!', ephemeral: true });
+          }
+
+          await i.deferUpdate();
+          await updatePlayerBalance(opponentId, opponentUser.username, bet, false);
+
+          isAccepted = true;
+          challengeCollector.stop('accepted');
+        } else if (i.customId === 'pvp:decline') {
+          if (i.user.id !== challengerId && i.user.id !== opponentId) {
+            return void i.reply({ content: '❌ Bạn không có thẩm quyền trong lời mời này!', ephemeral: true });
+          }
+
+          await i.deferUpdate();
+          challengeCollector.stop('declined');
+        }
+      });
+
+      challengeCollector.on('end', async (_, reason) => {
+        if (reason === 'accepted' && isAccepted) {
+          // Đặt khóa Active Game Lock cho cả 2 người chơi
+          kernel.cache.set(`active_game:${challengerId}`, Date.now(), 1800);
+          kernel.cache.set(`active_game:${opponentId}`, Date.now(), 1800);
+
+          // Khởi chạy game cụ thể
+          if (gameType === 'POKER') {
+            await startPokerGame();
+          } else if (gameType === 'BLACKJACK') {
+            await startBlackjackGame();
+          } else if (gameType === 'RANDOM_NUMBER') {
+            await startRandomNumberGame();
+          } else if (gameType === 'RANDOM_CARD') {
+            await startRandomCardGame();
+          }
+        } else {
+          // Hoàn trả cược cho challenger
+          await updatePlayerBalance(challengerId, interaction.user.username, bet, true);
+
+          const cancelEmbed = new EmbedBuilder()
+            .setTitle('❌ Thách Đấu Bị Huỷ')
+            .setColor(0xED4245)
+            .setDescription(reason === 'declined' ? 'Lời mời đã bị huỷ bởi người chơi.' : 'Hết thời gian chờ đồng ý.')
+            .setTimestamp();
+
+          await interaction.editReply({
+            embeds: [cancelEmbed],
+            components: []
+          });
+        }
+      });
+    } else {
+      // 2. Gửi lời mời thách đấu 4 Người
+      const gameLabel = gameType === 'POKER_4P' ? "Poker Texas Hold'em (4 Players)" : "Blackjack (Xì Dách) 4 Players";
+      const acceptedList = new Set<string>([challengerId]);
+      
+      const getInviteDescription = () => {
+        const opponentsStatus = opponents.map((opp, idx) => {
+          const accepted = acceptedList.has(opp.id);
+          return `Đối thủ ${idx + 1} - 👤 <@${opp.id}>: ${accepted ? '✅ **Đã đồng ý**' : '⏳ **Chờ đồng ý...**'}`;
+        }).join('\n');
+
+        return `👤 <@${challengerId}> thách đấu PvP 4 người game **${gameLabel}**!\n💵 Mức cược: **${currency === 'VND' ? `${bet.toLocaleString('vi-VN')} ₫` : `${bet.toLocaleString()} Coins`}**\n\n📌 **Trạng thái phòng:**\n👤 Trưởng phòng: <@${challengerId}> ✅\n${opponentsStatus}\n\n📢 **Thông báo:** Chỉ những người chơi đã chọn mới có thể sử dụng các nút chức năng trong trò chơi này!\n*Các đối thủ có 60 giây để đồng ý tham gia phòng chơi.*`;
+      };
+
+      const challengeEmbed = new EmbedBuilder()
+        .setTitle(`⚔️ Thách Đấu PvP 4 Người`)
+        .setColor(0xF6C453)
+        .setDescription(getInviteDescription())
+        .setTimestamp();
+
+      const challengeRows = new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder().setCustomId('pvp:accept').setLabel('Đồng ý (Accept)').setStyle(ButtonStyle.Success).setEmoji('🤝'),
+        new ButtonBuilder().setCustomId('pvp:decline').setLabel('Từ chối / Huỷ').setStyle(ButtonStyle.Danger).setEmoji('❌')
+      );
+
+      const challengeMsg = await interaction.editReply({
+        embeds: [challengeEmbed],
+        components: [challengeRows]
+      });
+
+      const challengeCollector = challengeMsg.createMessageComponentCollector({
+        componentType: ComponentType.Button,
+        time: 60000
+      });
+
+      let inviteFinished = false;
+
+      challengeCollector.on('collect', async i => {
+        const userId = i.user.id;
+        
+        if (i.customId === 'pvp:accept') {
+          const isOpponent = opponents.some(opp => opp.id === userId);
+          if (!isOpponent) {
+            return void i.reply({ content: '❌ Bạn không nằm trong danh sách được mời thách đấu!', ephemeral: true });
+          }
+          if (acceptedList.has(userId)) {
+            return void i.reply({ content: '❌ Bạn đã chấp nhận lời mời rồi!', ephemeral: true });
+          }
+
+          const checkOpponentDb = await kernel.db.guildMember.findUnique({ where: { guildId_userId: { guildId, userId } } });
+          const currentOpponentBal = currency === 'VND' ? checkOpponentDb?.vnd ?? 0 : checkOpponentDb?.balance ?? 0;
+
+          if (currentOpponentBal < bet) {
+            return void i.reply({ content: '❌ Bạn không đủ số dư để tham gia!', ephemeral: true });
+          }
+
+          await i.deferUpdate();
+          const oppUser = opponents.find(opp => opp.id === userId)!;
+          await updatePlayerBalance(userId, oppUser.username, bet, false);
+
+          acceptedList.add(userId);
+
+          await interaction.editReply({
+            embeds: [
+              EmbedBuilder.from(challengeEmbed)
+                .setDescription(getInviteDescription())
+            ]
+          });
+
+          if (acceptedList.size === 4) {
+            inviteFinished = true;
+            challengeCollector.stop('accepted');
+          }
+        } 
+        
+        else if (i.customId === 'pvp:decline') {
+          const isParticipant = allUserIds.includes(userId);
+          if (!isParticipant) {
+            return void i.reply({ content: '❌ Bạn không có thẩm quyền trong lời mời này!', ephemeral: true });
+          }
+
+          await i.deferUpdate();
+          inviteFinished = false;
+          challengeCollector.stop('declined');
+        }
+      });
+
+      challengeCollector.on('end', async (_, reason) => {
+        if (reason === 'accepted' && inviteFinished) {
+          for (const u of allUsers) {
+            kernel.cache.set(`active_game:${u.id}`, Date.now(), 1800);
+          }
+
+          if (gameType === 'POKER_4P') {
+            await startPoker4PGame();
+          } else if (gameType === 'BLACKJACK_4P') {
+            await startBlackjack4PGame();
+          }
+        } else {
+          for (const userId of acceptedList) {
+            const u = allUsers.find(user => user.id === userId)!;
+            await updatePlayerBalance(userId, u.username, bet, true);
+          }
+
+          const cancelEmbed = new EmbedBuilder()
+            .setTitle('❌ Thách Đấu Bị Huỷ')
+            .setColor(0xED4245)
+            .setDescription(reason === 'declined' ? 'Lời mời đã bị huỷ bởi người chơi.' : 'Hết thời gian chờ đồng ý.')
+            .setTimestamp();
+
+          await interaction.editReply({
+            embeds: [cancelEmbed],
+            components: []
+          });
+        }
+      });
+    }
+
+    // =================================================================
+    // 🃏 GAME ENGINE 3: BLACKJACK PVP 4 PLAYERS
+    // =================================================================
+    async function startBlackjack4PGame() {
+      const deck = getDeck();
+      
+      // Hands for 4 players
+      const hands: Card[][] = [
+        [deck.pop()!, deck.pop()!],
+        [deck.pop()!, deck.pop()!],
+        [deck.pop()!, deck.pop()!],
+        [deck.pop()!, deck.pop()!]
+      ];
+
+      const calculateScore = (hand: Card[]): number => {
+        let score = 0;
+        let aces = 0;
+        const valuesMap: Record<string, number> = {
+          '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10, 'J': 10, 'Q': 10, 'K': 10, 'A': 11
+        };
+        for (const c of hand) {
+          score += valuesMap[c.value];
+          if (c.value === 'A') aces++;
+        }
+        while (score > 21 && aces > 0) {
+          score -= 10;
+          aces--;
+        }
+        return score;
+      };
+
+      const getInitialCombo = (hand: Card[]): number => {
+        if (hand.length !== 2) return 0; // NORMAL
+        const aceCount = hand.filter(c => c.value === 'A').length;
+        if (aceCount === 2) return 2; // XI_BAN
+        const hasAce = hand.some(c => c.value === 'A');
+        const has10Card = hand.some(c => ['10', 'J', 'Q', 'K'].includes(c.value));
+        if (hasAce && has10Card) return 1; // XI_DACH
+        return 0; // NORMAL
+      };
+
+      const scores = hands.map(hand => calculateScore(hand));
+      const combos = hands.map(hand => getInitialCombo(hand));
+      const pot = bet * 4;
+      const playerNames = allUsers.map(u => u.username);
+
+      // Check if any player has initial combos
+      const hasInitialCombos = combos.some(c => c > 0);
+      if (hasInitialCombos) {
+        const maxCombo = Math.max(...combos);
+        const winnersIndices: number[] = [];
+        for (let i = 0; i < 4; i++) {
+          if (combos[i] === maxCombo) {
+            winnersIndices.push(i);
+          }
         }
 
-        const checkOpponentDb = await kernel.db.guildMember.findUnique({ where: { guildId_userId: { guildId, userId: opponentId } } });
-        const currentOpponentBal = currency === 'VND' ? checkOpponentDb?.vnd ?? 0 : checkOpponentDb?.balance ?? 0;
-
-        if (currentOpponentBal < bet) {
-          return void i.reply({ content: '❌ Bạn không đủ số dư để tham gia!', ephemeral: true });
+        let outcome = '';
+        const comboName = maxCombo === 2 ? 'Xì Bàn (Đôi AA)' : 'Xì Dách';
+        
+        if (winnersIndices.length === 1) {
+          const winnerIndex = winnersIndices[0];
+          const winnerName = playerNames[winnerIndex];
+          outcome = `🏆 **${winnerName}** thắng luôn nhờ có **${comboName}**!`;
+          await updatePlayerBalance(allUsers[winnerIndex].id, allUsers[winnerIndex].username, pot, true);
+        } else {
+          const winnerNames = winnersIndices.map(idx => playerNames[idx]).join(', ');
+          outcome = `🤝 HÒA NHAU! Các người chơi **${winnerNames}** đều có **${comboName}**!`;
+          const splitAmount = Math.floor(pot / winnersIndices.length);
+          for (const idx of winnersIndices) {
+            await updatePlayerBalance(allUsers[idx].id, allUsers[idx].username, splitAmount, true);
+          }
         }
 
-        await i.deferUpdate();
-        await updatePlayerBalance(opponentId, opponentUser.username, bet, false);
-
-        isAccepted = true;
-        challengeCollector.stop('accepted');
-      } else if (i.customId === 'pvp:decline') {
-        if (i.user.id !== challengerId && i.user.id !== opponentId) {
-          return void i.reply({ content: '❌ Bạn không có thẩm quyền trong lời mời này!', ephemeral: true });
+        for (const u of allUsers) {
+          kernel.cache.del(`active_game:${u.id}`);
         }
 
-        await i.deferUpdate();
-        challengeCollector.stop('declined');
-      }
-    });
+        const buffer = await CardDrawer.drawBlackjack4PTable(
+          hands,
+          scores,
+          playerNames,
+          bet,
+          currency,
+          -1,
+          false,
+          outcome
+        );
+        const attachment = new AttachmentBuilder(buffer, { name: 'bj-pvp-4p.png' });
 
-    challengeCollector.on('end', async (_, reason) => {
-      if (reason === 'accepted' && isAccepted) {
-        // Đặt khóa Active Game Lock cho cả 2 người chơi
-        kernel.cache.set(`active_game:${challengerId}`, Date.now(), 1800);
-        kernel.cache.set(`active_game:${opponentId}`, Date.now(), 1800);
-
-        // Khởi chạy game cụ thể
-        if (gameType === 'POKER') {
-          await startPokerGame();
-        } else if (gameType === 'BLACKJACK') {
-          await startBlackjackGame();
-        } else if (gameType === 'RANDOM_NUMBER') {
-          await startRandomNumberGame();
-        } else if (gameType === 'RANDOM_CARD') {
-          await startRandomCardGame();
-        }
-      } else {
-        // Hoàn trả cược cho challenger
-        await updatePlayerBalance(challengerId, interaction.user.username, bet, true);
-
-        const cancelEmbed = new EmbedBuilder()
-          .setTitle('❌ Thách Đấu Bị Huỷ')
-          .setColor(0xED4245)
-          .setDescription(reason === 'declined' ? 'Lời mời đã bị huỷ bởi người chơi.' : 'Hết thời gian chờ đồng ý.')
+        const finalEmbed = new EmbedBuilder()
+          .setTitle('🃏 Kết Quả Blackjack PvP 4P')
+          .setColor(0x57F287)
+          .setDescription(`**${outcome}**\n\n💰 Tổng Pot giải quyết: **${currency === 'VND' ? `${pot.toLocaleString('vi-VN')} ₫` : `${pot.toLocaleString()} Coins`}**`)
+          .setImage('attachment://bj-pvp-4p.png')
           .setTimestamp();
 
-        await interaction.editReply({
-          embeds: [cancelEmbed],
+        return void interaction.editReply({
+          embeds: [finalEmbed],
+          files: [attachment],
           components: []
         });
       }
-    });
+
+      let activeIndex = 0;
+      let stood = [false, false, false, false];
+
+      const getPvp4PBjButtons = () => {
+        const activeUser = allUsers[activeIndex];
+        const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+          new ButtonBuilder().setCustomId('bj_4p:hit').setLabel('Rút Bài (Hit)').setStyle(ButtonStyle.Success).setEmoji('🃏').setDisabled(hands[activeIndex].length >= 5 || stood[activeIndex]),
+          new ButtonBuilder().setCustomId('bj_4p:stand').setLabel('Dừng Bài (Stand)').setStyle(ButtonStyle.Danger).setEmoji('🛑').setDisabled(stood[activeIndex]),
+          new ButtonBuilder().setCustomId('bj_4p:view_cards').setLabel('👁️ Xem bài của mình').setStyle(ButtonStyle.Secondary)
+        );
+        return [row];
+      };
+
+      const getTableBuffer = async (outcome?: string) => {
+        return CardDrawer.drawBlackjack4PTable(
+          hands,
+          scores,
+          playerNames,
+          bet,
+          currency,
+          activeIndex,
+          !outcome,
+          outcome
+        );
+      };
+
+      let buffer = await getTableBuffer();
+      let attachment = new AttachmentBuilder(buffer, { name: 'bj-pvp-4p.png' });
+
+      let statusText = `Lượt của **${allUsers[activeIndex].username}** (Rút hoặc Dừng).`;
+      const potDisplay = currency === 'VND' ? `${pot.toLocaleString('vi-VN')} ₫` : `${pot.toLocaleString()} Coins`;
+
+      const bjEmbed = new EmbedBuilder()
+        .setTitle('🃏 Blackjack PvP 4 Người')
+        .setColor(0x105B34)
+        .setDescription(`🃏 **Quy định:** Chỉ người đến lượt mới có thể bấm Hit/Stand!\n👤 Lượt đi: <@${allUsers[activeIndex].id}>\n\n*${statusText}*\n\n💰 Tổng Pot: **${potDisplay}**`)
+        .setImage('attachment://bj-pvp-4p.png')
+        .setTimestamp();
+
+      const gameMsg = await interaction.editReply({
+        embeds: [bjEmbed],
+        files: [attachment],
+        components: getPvp4PBjButtons()
+      });
+
+      const gameCollector = gameMsg.createMessageComponentCollector({
+        componentType: ComponentType.Button,
+        idle: 90000
+      });
+
+      gameCollector.on('collect', async i => {
+        const userId = i.user.id;
+
+        if (i.customId === 'bj_4p:view_cards') {
+          const playerIdx = allUserIds.indexOf(userId);
+          if (playerIdx === -1) {
+            return void i.reply({ content: '❌ Bạn không tham gia ván chơi này!', ephemeral: true });
+          }
+
+          await i.deferReply({ ephemeral: true });
+          const myHand = hands[playerIdx];
+          const myScore = scores[playerIdx];
+          
+          const privateBuffer = await CardDrawer.drawRandomCards(myHand);
+          const privateAttach = new AttachmentBuilder(privateBuffer, { name: 'bj-private-4p.png' });
+
+          const suitsVi: Record<Card['suit'], string> = { H: 'Cơ ♥', D: 'Rô ♦', C: 'Chuồn ♣', S: 'Bích ♠' };
+          const cardText = myHand.map(c => `**${c.value}** ${suitsVi[c.suit]}`).join(', ');
+
+          await i.editReply({
+            content: `🃏 Bài Blackjack của bạn: ${cardText} (Tổng điểm: **${myScore}** / 21)`,
+            files: [privateAttach]
+          });
+          return;
+        }
+
+        const expectedUserId = allUsers[activeIndex].id;
+        if (userId !== expectedUserId) {
+          const isParticipant = allUserIds.includes(userId);
+          if (!isParticipant) {
+            return void i.reply({ content: '❌ Bạn không tham gia ván đấu này!', ephemeral: true });
+          } else {
+            return void i.reply({ content: `❌ Chưa đến lượt của bạn! Hiện tại đang là lượt của <@${expectedUserId}>.`, ephemeral: true });
+          }
+        }
+
+        await i.deferUpdate();
+
+        const advancePlayer = () => {
+          activeIndex++;
+          if (activeIndex >= 4) {
+            gameCollector.stop('showdown');
+          } else {
+            statusText = `Lượt tiếp theo của **${allUsers[activeIndex].username}**.`;
+          }
+        };
+
+        if (i.customId === 'bj_4p:hit') {
+          hands[activeIndex].push(deck.pop()!);
+          scores[activeIndex] = calculateScore(hands[activeIndex]);
+
+          if (scores[activeIndex] > 21) {
+            stood[activeIndex] = true;
+            statusText = `**${allUsers[activeIndex].username}** đã rút 1 lá bài và bị BUST (>21 điểm)!`;
+            advancePlayer();
+          } else if (hands[activeIndex].length >= 5) {
+            stood[activeIndex] = true;
+            statusText = `**${allUsers[activeIndex].username}** đã rút đủ 5 lá bài (Ngũ Linh)!`;
+            advancePlayer();
+          } else {
+            statusText = `**${allUsers[activeIndex].username}** đã rút 1 lá bài và tiếp tục lượt.`;
+          }
+        } else if (i.customId === 'bj_4p:stand') {
+          stood[activeIndex] = true;
+          statusText = `**${allUsers[activeIndex].username}** đã Dừng bài (Stand).`;
+          advancePlayer();
+        }
+
+        if (activeIndex < 4) {
+          buffer = await getTableBuffer();
+          attachment = new AttachmentBuilder(buffer, { name: 'bj-pvp-4p.png' });
+
+          await interaction.editReply({
+            embeds: [
+              EmbedBuilder.from(bjEmbed)
+                .setDescription(`🃏 **Quy định:** Chỉ người đến lượt mới có thể bấm Hit/Stand!\n👤 Lượt đi: <@${allUsers[activeIndex].id}>\n\n*${statusText}*\n\n💰 Tổng Pot: **${potDisplay}**`)
+            ],
+            files: [attachment],
+            components: getPvp4PBjButtons()
+          });
+        }
+      });
+
+      gameCollector.on('end', async (_, reason) => {
+        let outcome = '';
+        let winColor = 0xF6C453;
+
+        if (reason === 'showdown') {
+          const finalScores = scores;
+          const finalHands = hands;
+          
+          const nguLinhs: number[] = [];
+          const valids: number[] = [];
+          
+          for (let i = 0; i < 4; i++) {
+            const hasNguLinh = finalHands[i].length === 5 && finalScores[i] <= 21;
+            const isBust = finalScores[i] > 21;
+            
+            if (hasNguLinh) {
+              nguLinhs.push(i);
+            } else if (!isBust) {
+              valids.push(i);
+            }
+          }
+
+          if (nguLinhs.length > 0) {
+            nguLinhs.sort((a, b) => finalScores[a] - finalScores[b]);
+            const minScore = finalScores[nguLinhs[0]];
+            const winners = nguLinhs.filter(idx => finalScores[idx] === minScore);
+
+            if (winners.length === 1) {
+              const winIdx = winners[0];
+              outcome = `🏆 **${playerNames[winIdx]}** thắng tuyệt đối nhờ đạt **Ngũ Linh** (${finalScores[winIdx]} điểm)!`;
+              winColor = 0x57F287;
+              await updatePlayerBalance(allUsers[winIdx].id, allUsers[winIdx].username, pot, true);
+            } else {
+              const winNames = winners.map(idx => playerNames[idx]).join(', ');
+              outcome = `🤝 HÒA NHAU! Các người chơi **${winNames}** cùng đạt **Ngũ Linh** với ${minScore} điểm!`;
+              winColor = 0x5865F2;
+              const splitAmount = Math.floor(pot / winners.length);
+              for (const idx of winners) {
+                await updatePlayerBalance(allUsers[idx].id, allUsers[idx].username, splitAmount, true);
+              }
+            }
+          } else if (valids.length > 0) {
+            valids.sort((a, b) => finalScores[b] - finalScores[a]);
+            const maxScore = finalScores[valids[0]];
+            const winners = valids.filter(idx => finalScores[idx] === maxScore);
+
+            if (winners.length === 1) {
+              const winIdx = winners[0];
+              outcome = `🏆 **${playerNames[winIdx]}** chiến thắng với số điểm cao nhất: **${maxScore}**!`;
+              winColor = 0x57F287;
+              await updatePlayerBalance(allUsers[winIdx].id, allUsers[winIdx].username, pot, true);
+            } else {
+              const winNames = winners.map(idx => playerNames[idx]).join(', ');
+              outcome = `🤝 HÒA NHAU! Các người chơi **${winNames}** cùng có điểm số cao nhất là **${maxScore}**!`;
+              winColor = 0x5865F2;
+              const splitAmount = Math.floor(pot / winners.length);
+              for (const idx of winners) {
+                await updatePlayerBalance(allUsers[idx].id, allUsers[idx].username, splitAmount, true);
+              }
+            }
+          } else {
+            outcome = '🤝 HÒA! Tất cả các người chơi đều bị BUST (>21 điểm). Hoàn tiền cược!';
+            winColor = 0x5865F2;
+            for (let i = 0; i < 4; i++) {
+              await updatePlayerBalance(allUsers[i].id, allUsers[i].username, bet, true);
+            }
+          }
+        } else {
+          outcome = '❌ Trận đấu kết thúc do quá thời gian chờ (idle)! Hoàn tiền cược.';
+          winColor = 0xED4245;
+          for (let i = 0; i < 4; i++) {
+            await updatePlayerBalance(allUsers[i].id, allUsers[i].username, bet, true);
+          }
+        }
+
+        for (const u of allUsers) {
+          kernel.cache.del(`active_game:${u.id}`);
+        }
+
+        buffer = await getTableBuffer(outcome);
+        attachment = new AttachmentBuilder(buffer, { name: 'bj-pvp-4p.png' });
+
+        const finalEmbed = new EmbedBuilder()
+          .setTitle('🃏 Kết Quả Blackjack PvP 4 Người')
+          .setColor(winColor)
+          .setDescription(`**${outcome}**\n\n💰 Tổng Pot giải quyết: **${currency === 'VND' ? `${pot.toLocaleString('vi-VN')} ₫` : `${pot.toLocaleString()} Coins`}**`)
+          .setImage('attachment://bj-pvp-4p.png')
+          .setTimestamp();
+
+        await interaction.editReply({
+          embeds: [finalEmbed],
+          files: [attachment],
+          components: []
+        });
+      });
+    }
+
+    // =================================================================
+    // 🎴 GAME ENGINE 4: POKER PVP 4 PLAYERS
+    // =================================================================
+    async function startPoker4PGame() {
+      const evaluate5CardHand = (cards: Card[]): EvaluatedHand => {
+        const valuesMap: Record<string, number> = {
+          '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10, 'J': 11, 'Q': 12, 'K': 13, 'A': 14
+        };
+
+        const sorted = [...cards].sort((a, b) => valuesMap[b.value] - valuesMap[a.value]);
+        const sortedVals = sorted.map(c => valuesMap[c.value]);
+        const sortedSuits = sorted.map(c => c.suit);
+
+        const isFlush = sortedSuits.every(s => s === sortedSuits[0]);
+
+        let isStraight = false;
+        let straightHigh = 0;
+
+        const isNormalStraight = sortedVals.every((v, i) => i === 0 || v === sortedVals[i - 1] - 1);
+        if (isNormalStraight) {
+          isStraight = true;
+          straightHigh = sortedVals[0];
+        } else {
+          if (sortedVals[0] === 14 && sortedVals[1] === 5 && sortedVals[2] === 4 && sortedVals[3] === 3 && sortedVals[4] === 2) {
+            isStraight = true;
+            straightHigh = 5;
+          }
+        }
+
+        const counts: Record<number, number> = {};
+        for (const val of sortedVals) {
+          counts[val] = (counts[val] || 0) + 1;
+        }
+
+        const freq = Object.entries(counts).map(([val, count]) => ({
+          val: parseInt(val),
+          count
+        })).sort((a, b) => b.count - a.count || b.val - a.val);
+
+        const getTieBreaker = (vals: number[]) => {
+          return vals.reduce((sum, v, i) => sum + v * Math.pow(15, 4 - i), 0);
+        };
+
+        if (isFlush && isStraight) {
+          if (straightHigh === 14) {
+            return { rank: 9, rankName: 'Thùng Phá Sảnh Lớn (Royal Flush)', score: 9000000 };
+          }
+          return { rank: 8, rankName: 'Thùng Phá Sảnh (Straight Flush)', score: 8000000 + straightHigh };
+        }
+
+        if (freq[0].count === 4) {
+          return { rank: 7, rankName: 'Tứ Quý (Four of a Kind)', score: 7000000 + freq[0].val * 15 + freq[1].val };
+        }
+
+        if (freq[0].count === 3 && freq[1].count === 2) {
+          return { rank: 6, rankName: 'Cù Lũ (Full House)', score: 6000000 + freq[0].val * 15 + freq[1].val };
+        }
+
+        if (isFlush) {
+          return { rank: 5, rankName: 'Thùng (Flush)', score: 5000000 + getTieBreaker(sortedVals) };
+        }
+
+        if (isStraight) {
+          return { rank: 4, rankName: 'Sảnh (Straight)', score: 4000000 + straightHigh };
+        }
+
+        if (freq[0].count === 3) {
+          return { rank: 3, rankName: 'Sám Cô (Three of a Kind)', score: 3000000 + freq[0].val * 225 + freq[1].val * 15 + freq[2].val };
+        }
+
+        if (freq[0].count === 2 && freq[1].count === 2) {
+          const pair1 = Math.max(freq[0].val, freq[1].val);
+          const pair2 = Math.min(freq[0].val, freq[1].val);
+          return { rank: 2, rankName: 'Hai Đôi (Two Pair)', score: 2000000 + pair1 * 225 + pair2 * 15 + freq[2].val };
+        }
+
+        if (freq[0].count === 2) {
+          return { rank: 1, rankName: 'Một Đôi (One Pair)', score: 1000000 + freq[0].val * 3375 + freq[1].val * 225 + freq[2].val * 15 + freq[3].val };
+        }
+
+        return { rank: 0, rankName: 'Mậu Thầu (High Card)', score: getTieBreaker(sortedVals) };
+      };
+
+      const evaluate7CardHand = (cards: Card[]): EvaluatedHand => {
+        let bestHand: EvaluatedHand | null = null;
+        const combinations: Card[][] = [];
+        const makeCombos = (temp: Card[], start: number) => {
+          if (temp.length === 5) {
+            combinations.push([...temp]);
+            return;
+          }
+          for (let i = start; i < cards.length; i++) {
+            temp.push(cards[i]);
+            makeCombos(temp, i + 1);
+            temp.pop();
+          }
+        };
+        makeCombos([], 0);
+
+        for (const combo of combinations) {
+          const evalResult = evaluate5CardHand(combo);
+          if (!bestHand || evalResult.score > bestHand.score) {
+            bestHand = evalResult;
+          }
+        }
+        return bestHand!;
+      };
+
+      let deck = getDeck();
+      const hands: Card[][] = [
+        [deck.pop()!, deck.pop()!],
+        [deck.pop()!, deck.pop()!],
+        [deck.pop()!, deck.pop()!],
+        [deck.pop()!, deck.pop()!]
+      ];
+      const communityCards: Card[] = [];
+
+      const flopCards = [deck.pop()!, deck.pop()!, deck.pop()!];
+      const turnCard = deck.pop()!;
+      const riverCard = deck.pop()!;
+
+      let bets = [bet, bet, bet, bet];
+      let pot = bet * 4;
+      let playerFolded = [false, false, false, false];
+      let hasActed = [false, false, false, false];
+      let highestBet = bet;
+
+      let phase: 'preflop' | 'flop1' | 'flop2' | 'flop3' | 'turn' | 'river' | 'showdown' = 'preflop';
+      let activePlayerIndex = 0;
+      let statusText = `Lượt của <@${allUsers[activePlayerIndex].id}>. Hãy đưa ra quyết định.`;
+      const playerNames = allUsers.map(u => u.username);
+
+      const getPvpTable = async (hideAll = true) => {
+        return CardDrawer.drawPoker4PTable(
+          hands,
+          communityCards,
+          pot,
+          bets,
+          currency,
+          phase === 'preflop' ? 'Preflop' : phase === 'flop1' ? 'Flop 1' : phase === 'flop2' ? 'Flop 2' : phase === 'flop3' ? 'Flop 3' : phase === 'turn' ? 'Turn' : phase === 'river' ? 'River' : 'Showdown',
+          playerNames,
+          activePlayerIndex,
+          hideAll,
+          statusText
+        );
+      };
+
+      const getActionButtons = () => {
+        const isCheckAllowed = phase === 'flop2';
+        const hasRaise = highestBet > bets[activePlayerIndex];
+        const checkLabel = hasRaise ? 'Theo Cược (Call)' : (isCheckAllowed ? 'Xem Bài (Check)' : 'Theo Cược (Call)');
+        const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+          new ButtonBuilder()
+            .setCustomId('poker_4p:check_call')
+            .setLabel(checkLabel)
+            .setStyle(ButtonStyle.Success)
+            .setEmoji('✅'),
+          new ButtonBuilder()
+            .setCustomId('poker_4p:raise')
+            .setLabel(`Tăng cược (+${bet.toLocaleString()})`)
+            .setStyle(ButtonStyle.Primary)
+            .setEmoji('🔺')
+            .setDisabled(!isCheckAllowed),
+          new ButtonBuilder()
+            .setCustomId('poker_4p:fold')
+            .setLabel('Bỏ bài (Fold)')
+            .setStyle(ButtonStyle.Danger)
+            .setEmoji('🏳️'),
+          new ButtonBuilder()
+            .setCustomId('poker_4p:view_cards')
+            .setLabel('👁️ Xem bài tẩy')
+            .setStyle(ButtonStyle.Secondary)
+        );
+        return [row];
+      };
+
+      const checkRoundComplete = (): boolean => {
+        const activeIndices: number[] = [];
+        for (let i = 0; i < 4; i++) {
+          if (!playerFolded[i]) {
+            activeIndices.push(i);
+          }
+        }
+        return activeIndices.every(idx => hasActed[idx]);
+      };
+
+      const advancePhase = () => {
+        if (phase === 'preflop') {
+          phase = 'flop1';
+          communityCards.push(flopCards[0]);
+          statusText = `Vòng 2: lật lá chung thứ 1.`;
+        } else if (phase === 'flop1') {
+          phase = 'flop2';
+          communityCards.push(flopCards[1]);
+          statusText = `Vòng 3: lật lá chung thứ 2 (Được phép Check/Raise).`;
+        } else if (phase === 'flop2') {
+          phase = 'flop3';
+          communityCards.push(flopCards[2]);
+          statusText = `Vòng 4: lật lá chung thứ 3.`;
+        } else if (phase === 'flop3') {
+          phase = 'turn';
+          communityCards.push(turnCard);
+          statusText = `Vòng 5: lật lá chung thứ 4.`;
+        } else if (phase === 'turn') {
+          phase = 'river';
+          communityCards.push(riverCard);
+          statusText = `Vòng 6: lật lá chung thứ 5!`;
+        } else {
+          phase = 'showdown';
+          gameEnded = true;
+          gameCollector.stop('showdown');
+          return;
+        }
+
+        for (let i = 0; i < 4; i++) {
+          hasActed[i] = false;
+        }
+        activePlayerIndex = playerFolded.indexOf(false);
+        statusText += ` Lượt của <@${allUsers[activePlayerIndex].id}>.`;
+      };
+
+      const checkAndSkipAllIn = async () => {
+        while (!gameEnded) {
+          const userId = allUsers[activePlayerIndex].id;
+          const m = await kernel.db.guildMember.findUnique({ where: { guildId_userId: { guildId, userId } } });
+          const balance = m ? (currency === 'VND' ? m.vnd : m.balance) : 0;
+          if (balance === 0 && !playerFolded[activePlayerIndex]) {
+            hasActed[activePlayerIndex] = true;
+            statusText = `Người chơi <@${userId}> đã All-In, tự động qua lượt.`;
+            const isRoundComplete = checkRoundComplete();
+            if (isRoundComplete) {
+              advancePhase();
+            } else {
+              do { activePlayerIndex = (activePlayerIndex + 1) % 4 } while (playerFolded[activePlayerIndex]);
+            }
+          } else {
+            break;
+          }
+        }
+      };
+
+      let buffer = await getPvpTable(true);
+      let attachment = new AttachmentBuilder(buffer, { name: 'poker-4p.png' });
+
+      const pvpEmbed = new EmbedBuilder()
+        .setTitle('🎴 Poker PvP 4 Người')
+        .setColor(0x0F4C81)
+        .setDescription(`Ván đấu bắt đầu!\n👤 Người đi lượt: <@${allUsers[activePlayerIndex].id}>\n💵 Tổng Pot: **${currency === 'VND' ? `${pot.toLocaleString('vi-VN')} ₫` : `${pot.toLocaleString()} Coins`}**`)
+        .setImage('attachment://poker-4p.png')
+        .setTimestamp();
+
+      const gameMsg = await interaction.editReply({
+        embeds: [pvpEmbed],
+        files: [attachment],
+        components: getActionButtons()
+      });
+
+      const gameCollector = gameMsg.createMessageComponentCollector({
+        componentType: ComponentType.Button,
+        idle: 90000
+      });
+
+      let gameEnded = false;
+
+      const updateDisplay = async () => {
+        buffer = await getPvpTable(true);
+        attachment = new AttachmentBuilder(buffer, { name: 'poker-4p.png' });
+        await interaction.editReply({
+          embeds: [
+            EmbedBuilder.from(pvpEmbed)
+              .setDescription(`Vòng chơi hiện tại: **${phase.toUpperCase()}**\n👤 Người đi lượt: <@${allUsers[activePlayerIndex].id}>\n💵 Tổng Pot: **${currency === 'VND' ? `${pot.toLocaleString('vi-VN')} ₫` : `${pot.toLocaleString()} Coins`}**\n\n*${statusText}*`)
+          ],
+          files: [attachment],
+          components: getActionButtons()
+        });
+      };
+
+      gameCollector.on('collect', async i => {
+        if (gameEnded) return;
+        const userId = i.user.id;
+
+        if (i.customId === 'poker_4p:view_cards') {
+          const playerIdx = allUserIds.indexOf(userId);
+          if (playerIdx === -1) {
+            return void i.reply({ content: '❌ Bạn không tham gia trận đấu này!', ephemeral: true });
+          }
+
+          await i.deferReply({ ephemeral: true });
+          const myHand = hands[playerIdx];
+          const privateBuffer = await CardDrawer.drawRandomCards(myHand);
+          const privateAttach = new AttachmentBuilder(privateBuffer, { name: 'pocket-4p.png' });
+
+          const suitsVi: Record<Card['suit'], string> = { H: 'Cơ ♥', D: 'Rô ♦', C: 'Chuồn ♣', S: 'Bích ♠' };
+          const cardText = myHand.map(c => `**${c.value}** ${suitsVi[c.suit]}`).join(', ');
+
+          await i.editReply({
+            content: `🎴 Bài tẩy của bạn: ${cardText}`,
+            files: [privateAttach]
+          });
+          return;
+        }
+
+        const expectedUserId = allUsers[activePlayerIndex].id;
+        if (userId !== expectedUserId) {
+          const isParticipant = allUserIds.includes(userId);
+          if (!isParticipant) {
+            return void i.reply({ content: '❌ Bạn không tham gia ván đấu này!', ephemeral: true });
+          } else {
+            return void i.reply({ content: `❌ Chưa đến lượt của bạn! Hiện tại đang là lượt của <@${expectedUserId}>.`, ephemeral: true });
+          }
+        }
+
+        if (i.customId === 'poker_4p:fold') {
+          await i.deferUpdate();
+          playerFolded[activePlayerIndex] = true;
+          statusText = `<@${userId}> đã FOLD bài!`;
+
+          const activeCount = playerFolded.filter(f => !f).length;
+          if (activeCount === 1) {
+            gameEnded = true;
+            gameCollector.stop('win_by_fold');
+            return;
+          }
+
+          const isRoundComplete = checkRoundComplete();
+          if (isRoundComplete) {
+            advancePhase();
+          } else {
+            do { activePlayerIndex = (activePlayerIndex + 1) % 4 } while (playerFolded[activePlayerIndex]);
+          }
+
+          await checkAndSkipAllIn();
+          if (!gameEnded) await updateDisplay();
+          return;
+        }
+
+        if (i.customId === 'poker_4p:raise') {
+          const modal = new ModalBuilder()
+            .setCustomId('poker_4p_raise_modal')
+            .setTitle('🔺 Tăng Cược (Raise)');
+
+          const raiseInput = new TextInputBuilder()
+            .setCustomId('raise_amount_input')
+            .setLabel('Số tiền muốn tăng thêm')
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder('Nhập số tiền tăng cược...')
+            .setRequired(true);
+
+          const modalRow = new ActionRowBuilder<TextInputBuilder>().addComponents(raiseInput);
+          modal.addComponents(modalRow);
+
+          await i.showModal(modal);
+
+          const submit = await i.awaitModalSubmit({
+            filter: modalInteraction => modalInteraction.customId === 'poker_4p_raise_modal' && modalInteraction.user.id === i.user.id,
+            time: 60000
+          }).catch(() => null);
+
+          if (!submit) return;
+          await submit.deferUpdate();
+
+          const valStr = submit.fields.getTextInputValue('raise_amount_input');
+          const raiseAmount = parseInt(valStr.replace(/[^0-9]/g, ''));
+          if (isNaN(raiseAmount) || raiseAmount <= 0) {
+            return void submit.followUp({ content: '❌ Số tiền tăng cược không hợp lệ!', ephemeral: true });
+          }
+
+          const m = await kernel.db.guildMember.findUnique({ where: { guildId_userId: { guildId, userId } } });
+          const currentBal = m ? (currency === 'VND' ? m.vnd : m.balance) : 0;
+          if (currentBal < raiseAmount) {
+            return void submit.followUp({ content: '❌ Số dư của bạn không đủ để tăng cược!', ephemeral: true });
+          }
+
+          await updatePlayerBalance(userId, i.user.username, raiseAmount, false);
+          
+          bets[activePlayerIndex] += raiseAmount;
+          pot += raiseAmount;
+          highestBet = bets[activePlayerIndex];
+
+          for (let pIdx = 0; pIdx < 4; pIdx++) {
+            if (pIdx !== activePlayerIndex) {
+              hasActed[pIdx] = false;
+            }
+          }
+          hasActed[activePlayerIndex] = true;
+
+          statusText = `<@${userId}> đã TĂNG CƯỢC (+${raiseAmount.toLocaleString()})!`;
+          
+          do { activePlayerIndex = (activePlayerIndex + 1) % 4 } while (playerFolded[activePlayerIndex]);
+          
+          await checkAndSkipAllIn();
+          if (!gameEnded) await updateDisplay();
+          return;
+        }
+
+        if (i.customId === 'poker_4p:check_call') {
+          await i.deferUpdate();
+          const hasRaise = highestBet > bets[activePlayerIndex];
+          if (hasRaise) {
+            const betDiff = highestBet - bets[activePlayerIndex];
+            const m = await kernel.db.guildMember.findUnique({ where: { guildId_userId: { guildId, userId } } });
+            const currentBal = m ? (currency === 'VND' ? m.vnd : m.balance) : 0;
+
+            const actualCallAmount = Math.min(betDiff, currentBal);
+            await updatePlayerBalance(userId, i.user.username, actualCallAmount, false);
+            
+            bets[activePlayerIndex] += actualCallAmount;
+            pot += actualCallAmount;
+            statusText = `<@${userId}> đã THEO CƯỢC (Call) ${actualCallAmount.toLocaleString()}.`;
+          } else {
+            statusText = `<@${userId}> đã CHECK.`;
+          }
+
+          hasActed[activePlayerIndex] = true;
+
+          const isRoundComplete = checkRoundComplete();
+          if (isRoundComplete) {
+            advancePhase();
+          } else {
+            do { activePlayerIndex = (activePlayerIndex + 1) % 4 } while (playerFolded[activePlayerIndex]);
+          }
+
+          await checkAndSkipAllIn();
+          if (!gameEnded) await updateDisplay();
+          return;
+        }
+      });
+
+      gameCollector.on('end', async (_, reason) => {
+        let outcome = '';
+        let winColor = 0x0F4C81;
+
+        if (reason === 'win_by_fold') {
+          const winnerIndex = playerFolded.indexOf(false);
+          const winner = allUsers[winnerIndex];
+          outcome = `🏆 <@${winner.id}> chiến thắng do tất cả đối thủ đều Fold! Nhận trọn Pot!`;
+          winColor = 0x57F287;
+          await updatePlayerBalance(winner.id, winner.username, pot, true);
+        } else if (reason === 'showdown') {
+          const playerEvals: { index: number; evalResult: EvaluatedHand }[] = [];
+          for (let i = 0; i < 4; i++) {
+            if (!playerFolded[i]) {
+              const res = evaluate7CardHand([...hands[i], ...communityCards]);
+              playerEvals.push({ index: i, evalResult: res });
+            }
+          }
+
+          playerEvals.sort((a, b) => b.evalResult.score - a.evalResult.score);
+          const maxScore = playerEvals[0].evalResult.score;
+          const winners = playerEvals.filter(e => e.evalResult.score === maxScore);
+
+          if (winners.length === 1) {
+            const winnerIdx = winners[0].index;
+            outcome = `🏆 <@${allUsers[winnerIdx].id}> chiến thắng với bài **${winners[0].evalResult.rankName}**!`;
+            winColor = 0x57F287;
+            await updatePlayerBalance(allUsers[winnerIdx].id, allUsers[winnerIdx].username, pot, true);
+          } else {
+            const winNames = winners.map(w => `<@${allUsers[w.index].id}>`).join(', ');
+            outcome = `🤝 HÒA NHAU! Các người chơi **${winNames}** cùng có bài **${winners[0].evalResult.rankName}**!`;
+            winColor = 0x5865F2;
+            const splitAmount = Math.floor(pot / winners.length);
+            for (const w of winners) {
+              await updatePlayerBalance(allUsers[w.index].id, allUsers[w.index].username, splitAmount, true);
+            }
+          }
+        } else {
+          outcome = `❌ Ván đấu kết thúc do hết thời gian chờ! Hoàn trả tiền cược.`;
+          winColor = 0xED4245;
+          for (let i = 0; i < 4; i++) {
+            await updatePlayerBalance(allUsers[i].id, allUsers[i].username, bets[i], true);
+          }
+        }
+
+        for (const u of allUsers) {
+          kernel.cache.del(`active_game:${u.id}`);
+        }
+
+        statusText = outcome;
+        buffer = await getPvpTable(false);
+        attachment = new AttachmentBuilder(buffer, { name: 'poker-4p.png' });
+
+        const finalEmbed = new EmbedBuilder()
+          .setTitle('🎴 Kết Quả Poker PvP 4 Người')
+          .setColor(winColor)
+          .setDescription(`**${outcome}**\n\n💰 Tổng Pot giải quyết: **${currency === 'VND' ? `${pot.toLocaleString('vi-VN')} ₫` : `${pot.toLocaleString()} Coins`}**`)
+          .setImage('attachment://poker-4p.png')
+          .setTimestamp();
+
+        await interaction.editReply({
+          embeds: [finalEmbed],
+          files: [attachment],
+          components: []
+        });
+      });
+    }
 
     // Deck generator helpers
     const getDeck = (): Card[] => {
