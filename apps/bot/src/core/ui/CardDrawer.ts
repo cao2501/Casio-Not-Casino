@@ -473,7 +473,10 @@ export class CardDrawer {
     currency: 'COIN' | 'VND',
     gamePhase: string,
     statusText?: string,
-    hideBotHand = true
+    hideBotHand = true,
+    hidePlayerHand = false,
+    playerLabel = 'BẠN (PLAYER)',
+    botLabel = 'BOT (ĐỐI THỦ)'
   ): Promise<Buffer> {
     const width = 900;
     const height = 500;
@@ -499,7 +502,16 @@ export class CardDrawer {
     ctx.fillText('TEXAS HOLD\'EM', width / 2, height / 2 - 120);
 
     // 1. Draw Bot (Dealer) Hand at Top
-    this.drawHand(ctx, botHand, 350, 60, `BOT (ĐỐI THỦ)`, isNaN(betBot) ? undefined : `Cược: ${betBot.toLocaleString()}`, hideBotHand);
+    this.drawHand(
+      ctx,
+      botHand,
+      350,
+      60,
+      botLabel,
+      isNaN(betBot) ? undefined : `Cược: ${betBot.toLocaleString()}`,
+      hideBotHand,
+      hideBotHand
+    );
 
     // 2. Draw Community Cards in the center
     ctx.fillStyle = '#FFFFFF';
@@ -530,7 +542,16 @@ export class CardDrawer {
     }
 
     // 3. Draw Player Hand at Bottom
-    this.drawHand(ctx, playerHand, 350, 340, `BẠN (PLAYER)`, isNaN(betPlayer) ? undefined : `Cược: ${betPlayer.toLocaleString()}`, false);
+    this.drawHand(
+      ctx,
+      playerHand,
+      350,
+      340,
+      playerLabel,
+      isNaN(betPlayer) ? undefined : `Cược: ${betPlayer.toLocaleString()}`,
+      hidePlayerHand,
+      hidePlayerHand
+    );
 
     // 4. Draw Pot and Info Section (left box)
     ctx.save();

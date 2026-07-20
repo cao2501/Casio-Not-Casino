@@ -1815,7 +1815,10 @@ export default class PvpCommand implements ICommand {
           currency,
           phase === 'preflop' ? 'Preflop' : phase === 'flop1' ? 'Flop 1' : phase === 'flop2' ? 'Flop 2' : phase === 'flop3' ? 'Flop 3' : phase === 'turn' ? 'Turn' : phase === 'river' ? 'River' : 'Showdown',
           statusText,
-          hideAll
+          hideAll, // hideBotHand
+          hideAll, // hidePlayerHand
+          interaction.user.username.toUpperCase(),
+          opponentUser.username.toUpperCase()
         );
       };
 

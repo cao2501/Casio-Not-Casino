@@ -270,7 +270,10 @@ export default class PokerCommand implements ICommand {
         currency,
         phase === 'preflop' ? 'Pre-flop' : phase === 'flop1' ? 'Flop 1' : phase === 'flop2' ? 'Flop 2' : phase === 'flop3' ? 'Flop 3' : phase === 'turn' ? 'Turn' : phase === 'river' ? 'River' : 'Showdown',
         statusText,
-        hideBot
+        hideBot,
+        false, // hidePlayerHand
+        interaction.user.username.toUpperCase(),
+        interaction.client.user.username.toUpperCase()
       );
     };
 
