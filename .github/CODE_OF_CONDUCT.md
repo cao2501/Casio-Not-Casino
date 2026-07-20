@@ -1,8 +1,8 @@
-# Quy Tắc Ứng Xử Cộng Đồng Kini Bot 2.0
+# Quy Tắc Ứng Xử Cộng Đồng Gamma Beta 2.0
 
 ## Cam Kết Của Chúng Tôi
 
-Nhằm thúc đẩy một môi trường cởi mở và thân thiện, chúng tôi với tư cách là những người đóng góp và duy trì dự án **Kini Bot 2.0** cam kết sẽ mang lại trải nghiệm tham gia dự án và cộng đồng không bị quấy rối cho tất cả mọi người, không phân biệt độ tuổi, ngoại hình, khuyết tật, sắc tộc, bản dạng giới và xu hướng tính dục, mức độ kinh nghiệm, trình độ học vấn, tình trạng kinh tế xã hội, quốc tịch, chủng tộc, tôn giáo hoặc định hướng tình dục.
+Nhằm thúc đẩy một môi trường cởi mở và thân thiện, chúng tôi với tư cách là những người đóng góp và duy trì dự án **Gamma Beta 2.0** cam kết sẽ mang lại trải nghiệm tham gia dự án và cộng đồng không bị quấy rối cho tất cả mọi người, không phân biệt độ tuổi, ngoại hình, khuyết tật, sắc tộc, bản dạng giới và xu hướng tính dục, mức độ kinh nghiệm, trình độ học vấn, tình trạng kinh tế xã hội, quốc tịch, chủng tộc, tôn giáo hoặc định hướng tình dục.
 
 ## Các Tiêu Chuẩn Hành Vi
 
@@ -10,7 +10,7 @@ Nhằm thúc đẩy một môi trường cởi mở và thân thiện, chúng t�
 - Sử dụng ngôn từ thân thiện, lịch sự và hòa nhập.
 - Tôn trọng các quan điểm và trải nghiệm khác biệt.
 - Tiếp thu các ý kiến đóng góp mang tính xây dựng một cách cởi mở.
-- Tập trung vào những điều tốt nhất cho cộng đồng và sự phát triển của Kini Bot.
+- Tập trung vào những điều tốt nhất cho cộng đồng và sự phát triển của Gamma Beta 2.0.
 - Thể hiện sự đồng cảm và thấu hiểu đối với các thành viên khác trong cộng đồng.
 
 **Hành vi không được chấp nhận bởi người tham gia:**
@@ -28,11 +28,11 @@ Ban quản trị có quyền và trách nhiệm xóa, chỉnh sửa hoặc từ 
 
 ## Phạm Vi Áp Dụng
 
-Quy tắc ứng xử này được áp dụng trong tất cả các không gian liên quan đến dự án **Kini Bot 2.0** (bao gồm GitHub, máy chủ Discord hỗ trợ, Dashboard quản trị) và cũng được áp dụng khi một cá nhân đại diện cho dự án hoặc cộng đồng Kini Bot trong các không gian công cộng.
+Quy tắc ứng xử này được áp dụng trong tất cả các không gian liên quan đến dự án **Gamma Beta 2.0** (bao gồm GitHub, máy chủ Discord hỗ trợ, Dashboard quản trị) và cũng được áp dụng khi một cá nhân đại diện cho dự án hoặc cộng đồng Gamma Beta 2.0 trong các không gian công cộng.
 
 ## Thực Thi Quy Tắc
 
-Các hành vi lạm dụng, quấy rối hoặc không thể chấp nhận được có thể được báo cáo trực tiếp tới ban quản trị dự án Kini Bot qua:
+Các hành vi lạm dụng, quấy rối hoặc không thể chấp nhận được có thể được báo cáo trực tiếp tới ban quản trị dự án Gamma Beta 2.0 qua:
 - **Discord Support**: [Liên kết hỗ trợ](https://discord.gg/your-server)
 - **Người chịu trách nhiệm chính**: **cao2501** (GitHub: [cao2501](https://github.com/cao2501))
 
@@ -41,4 +41,5 @@ Tất cả các khiếu nại sẽ được xem xét, điều tra và bảo mậ
 ## Ghi Nhận Đóng Góp
 
 Quy tắc ứng xử này được biên soạn dựa trên bản dịch tiếng Việt của [Contributor Covenant](https://www.contributor-covenant.org), phiên bản 1.4.
+
 

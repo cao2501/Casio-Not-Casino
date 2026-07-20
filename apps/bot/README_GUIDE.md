@@ -1,6 +1,6 @@
-# 📖 HƯỚNG DẪN SỬ DỤNG BOT KINI 2.0 & ADMIN DASHBOARD
+# 📖 HƯỚNG DẪN SỬ DỤNG BOT CASIO NOT CASINO & ADMIN DASHBOARD
 
-Tài liệu này hướng dẫn chi tiết cách sử dụng các lệnh Discord và vận hành Dashboard quản trị của hệ thống Bot Kini 2.0.
+Tài liệu này hướng dẫn chi tiết cách sử dụng các lệnh Discord và vận hành Dashboard quản trị của hệ thống Bot Gamma Beta 2.0.
 
 ---
 
@@ -85,3 +85,4 @@ Trang quản trị chạy tại tên miền bảo mật: **`https://casionotcasi
     *   Chọn máy chủ Discord cần thiết lập.
     *   Chọn một lệnh Slash Command cụ thể cần giới hạn quyền.
     *   Tick chọn vai trò (Role) được phép sử dụng (`Allowed`) hoặc bị cấm sử dụng (`Denied`) lệnh đó. Hệ thống bot Discord sẽ tự động từ chối và gửi ảnh thông báo lỗi nếu có người cố tình vi phạm.
+

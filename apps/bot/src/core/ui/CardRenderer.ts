@@ -1,6 +1,9 @@
 import { createCanvas, loadImage, Canvas, CanvasRenderingContext2D } from '@napi-rs/canvas';
 import { Theme } from './Theme';
 import { CanvasRenderer } from './CanvasRenderer';
+import { BotClient } from '../Client';
+
+const getBotName = () => BotClient.instance?.user?.username ?? 'Gamma Beta 2.0';
 
 export class CardRenderer {
   /**
@@ -430,7 +433,7 @@ export class CardRenderer {
     ctx.fillText(`Cập nhật: ${nowStr}`, 40, footerY + 5);
 
     ctx.textAlign = 'right';
-    ctx.fillText(`${guildName} • KINI 2.0`, width - 40, footerY + 5);
+    ctx.fillText(`${guildName} • ${getBotName().toUpperCase()}`, width - 40, footerY + 5);
     ctx.textAlign = 'left';
 
     return canvas.toBuffer('image/png');
@@ -623,7 +626,7 @@ export class CardRenderer {
     ctx.fillText(`🕒 ${nowStr}`, 40, footerY);
 
     ctx.textAlign = 'right';
-    ctx.fillText(`${guildName} • KINI 2.0`, width - 40, footerY);
+    ctx.fillText(`${guildName} • ${getBotName().toUpperCase()}`, width - 40, footerY);
     ctx.textAlign = 'left';
 
     return canvas.toBuffer('image/png');
@@ -857,7 +860,7 @@ export class CardRenderer {
     ctx.fillText(`Cập nhật: ${nowStr}`, 40, footerY + 5);
 
     ctx.textAlign = 'right';
-    ctx.fillText(`${guildName} • KINI 2.0`, width - 40, footerY + 5);
+    ctx.fillText(`${guildName} • ${getBotName().toUpperCase()}`, width - 40, footerY + 5);
     ctx.textAlign = 'left';
 
     return canvas.toBuffer('image/png');
@@ -1346,7 +1349,7 @@ export class CardRenderer {
       ctx.fillStyle = Theme.colors.textMuted;
       ctx.font = '12px "Segoe UI", "Segoe UI Emoji", "Segoe UI Symbol", Arial, sans-serif';
       
-      const footerText = footer ?? (username ? `Yêu cầu bởi @${username}` : `${guildName ?? 'Server'} • KINI 2.0`);
+      const footerText = footer ?? (username ? `Yêu cầu bởi @${username}` : `${guildName ?? 'Server'} • ${getBotName().toUpperCase()}`);
       ctx.fillText(footerText, footerX, footerY + 16);
     }
 
@@ -1406,7 +1409,7 @@ export class CardRenderer {
     // 5. Draw chip-like icon / header
     ctx.fillStyle = Theme.colors.accentGold;
     ctx.font = 'bold 12px "Segoe UI", "Segoe UI Emoji", "Segoe UI Symbol", Arial, sans-serif';
-    ctx.fillText('KINI VIP PLATINUM', 40, 45);
+    ctx.fillText(`${getBotName().toUpperCase()} VIP PLATINUM`, 40, 45);
 
     // Draw card brand logo
     ctx.fillStyle = '#ffffff';
@@ -1445,7 +1448,7 @@ export class CardRenderer {
     // 9. Draw Footer
     ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
     ctx.font = '11px "Segoe UI", Arial, sans-serif';
-    ctx.fillText(guildName.toUpperCase() + ' • KINI 2.0 ENTERPRISE', 40, height - 25);
+    ctx.fillText(guildName.toUpperCase() + ` • ${getBotName().toUpperCase()} ENTERPRISE`, 40, height - 25);
 
     return canvas.toBuffer('image/png');
   }
@@ -1489,7 +1492,7 @@ export class CardRenderer {
     // 3. Bill / Invoice Header
     ctx.fillStyle = Theme.colors.accentGold;
     ctx.font = 'bold 13px "Segoe UI", Arial, sans-serif';
-    ctx.fillText('HÓA ĐƠN NẠP TIỀN TỰ ĐỘNG (KINI BANKING)', 45, 45);
+    ctx.fillText(`HÓA ĐƠN NẠP TIỀN TỰ ĐỘNG (${getBotName().toUpperCase()} BANKING)`, 45, 45);
 
     ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
     ctx.font = 'normal 12px "Segoe UI", Arial, sans-serif';

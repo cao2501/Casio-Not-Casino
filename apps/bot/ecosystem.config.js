@@ -1,7 +1,7 @@
 module.exports = {
   apps: [
     {
-      name: 'kini-bot',
+      name: 'gamma-beta-bot',
       script: 'dist/index.js',
       exec_mode: 'fork',
       instances: 1,

@@ -150,7 +150,7 @@ export class SpecialLogger {
               { name: '💰 Số Tiền', value: `**${amount.toLocaleString()} VNĐ**`, inline: true },
               { name: '📋 Chi Tiết', value: details, inline: false }
             )
-            .setFooter({ text: 'Kini Bank Logs' })
+            .setFooter({ text: `${kernel.client.user?.username ?? 'Gamma Beta'} Bank Logs` })
             .setTimestamp();
 
           await (channel as TextChannel).send({ embeds: [embed] }).catch(() => {});
@@ -279,14 +279,14 @@ export class SpecialLogger {
       }
 
       if (!targetChannel) {
-        // Fallback to auto-created kini-ticket-logs
+        // Fallback to auto-created gamma-beta-ticket-logs
         targetChannel = guild.channels.cache.find(
-          c => c.name === 'kini-ticket-logs' && c.type === 0
+          c => c.name === 'gamma-beta-ticket-logs' && c.type === 0
         ) as TextChannel | undefined ?? null;
 
         if (!targetChannel) {
           targetChannel = await guild.channels.create({
-            name: 'kini-ticket-logs',
+            name: 'gamma-beta-ticket-logs',
             type: 0,
             permissionOverwrites: [
               {
@@ -310,7 +310,7 @@ export class SpecialLogger {
           { name: '🔒 Đóng bởi', value: `<@${closerId}> (${closerTag})`, inline: true },
           { name: '📋 Lý do', value: reason || 'Không có', inline: false }
         )
-        .setFooter({ text: `Kini Ticket Logs` })
+        .setFooter({ text: `${kernel.client.user?.username ?? 'Gamma Beta'} Ticket Logs` })
         .setTimestamp();
 
       // Send to channel

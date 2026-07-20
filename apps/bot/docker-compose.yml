@@ -3,7 +3,7 @@ version: '3.8'
 services:
   bot:
     build: .
-    container_name: kini-discord-bot
+    container_name: gamma-beta-discord-bot
     restart: unless-stopped
     ports:
       - "${DASHBOARD_PORT:-3000}:3000"

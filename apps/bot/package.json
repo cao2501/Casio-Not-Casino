@@ -16,9 +16,9 @@
     "deploy:commands": "ts-node -r reflect-metadata -r dotenv/config src/deploy.ts",
     "pm2:start": "npm run build && pm2 start ecosystem.config.js --env production",
     "pm2:dev": "pm2 start ecosystem.config.js --env development",
-    "pm2:stop": "pm2 stop kini-bot",
-    "pm2:restart": "pm2 restart kini-bot",
-    "pm2:logs": "pm2 logs kini-bot",
+    "pm2:stop": "pm2 stop gamma-beta-bot",
+    "pm2:restart": "pm2 restart gamma-beta-bot",
+    "pm2:logs": "pm2 logs gamma-beta-bot",
     "pm2:status": "pm2 status",
     "lint": "eslint src --ext .ts",
     "type-check": "tsc --noEmit"

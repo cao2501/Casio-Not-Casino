@@ -5,6 +5,7 @@ import { IModule } from './interfaces/IModule';
 import { logger } from './logger/Logger';
 
 export class BotClient extends Client {
+  public static instance: BotClient | null = null;
   public readonly commands = new Collection<string, ICommand>();
   public readonly cooldowns = new Collection<string, Collection<string, number>>();
   public readonly modules = new Collection<string, IModule>();
@@ -43,6 +44,7 @@ export class BotClient extends Client {
         Partials.GuildMember,
       ],
     });
+    BotClient.instance = this;
   }
 
   async deployCommands(): Promise<void> {
