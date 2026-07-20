@@ -1,76 +1,44 @@
-# Contributor Covenant Code of Conduct
+# Quy Tắc Ứng Xử Cộng Đồng Kini Bot 2.0
 
-## Our Pledge
+## Cam Kết Của Chúng Tôi
 
-In the interest of fostering an open and welcoming environment, we as
-contributors and maintainers pledge to make participation in our project and
-our community a harassment-free experience for everyone, regardless of age, body
-size, disability, ethnicity, sex characteristics, gender identity and expression,
-level of experience, education, socio-economic status, nationality, personal
-appearance, race, religion, or sexual identity and orientation.
+Nhằm thúc đẩy một môi trường cởi mở và thân thiện, chúng tôi với tư cách là những người đóng góp và duy trì dự án **Kini Bot 2.0** cam kết sẽ mang lại trải nghiệm tham gia dự án và cộng đồng không bị quấy rối cho tất cả mọi người, không phân biệt độ tuổi, ngoại hình, khuyết tật, sắc tộc, bản dạng giới và xu hướng tính dục, mức độ kinh nghiệm, trình độ học vấn, tình trạng kinh tế xã hội, quốc tịch, chủng tộc, tôn giáo hoặc định hướng tình dục.
 
-## Our Standards
+## Các Tiêu Chuẩn Hành Vi
 
-Examples of behavior that contributes to creating a positive environment
-include:
+**Hành vi đóng góp vào việc tạo dựng môi trường tích cực:**
+- Sử dụng ngôn từ thân thiện, lịch sự và hòa nhập.
+- Tôn trọng các quan điểm và trải nghiệm khác biệt.
+- Tiếp thu các ý kiến đóng góp mang tính xây dựng một cách cởi mở.
+- Tập trung vào những điều tốt nhất cho cộng đồng và sự phát triển của Kini Bot.
+- Thể hiện sự đồng cảm và thấu hiểu đối với các thành viên khác trong cộng đồng.
 
-- Using welcoming and inclusive language
-- Being respectful of differing viewpoints and experiences
-- Gracefully accepting constructive criticism
-- Focusing on what is best for the community
-- Showing empathy towards other community members
+**Hành vi không được chấp nhận bởi người tham gia:**
+- Sử dụng ngôn từ, hình ảnh mang tính gợi dục hoặc hành vi quấy rối, gạ gẫm tình dục không mong muốn.
+- Hành vi công kích, xúc phạm, bình luận hạ thấp danh dự và tấn công cá nhân hoặc chính trị.
+- Quấy rối công khai hoặc riêng tư dưới mọi hình thức.
+- Công bố thông tin cá nhân của người khác (như địa chỉ nhà riêng hoặc địa chỉ email) mà không được sự cho phép rõ ràng.
+- Các hành vi khác có thể được coi là không phù hợp trong môi trường chuyên nghiệp và cộng đồng công nghệ.
 
-Examples of unacceptable behavior by participants include:
+## Trách Nhiệm Của Ban Quản Trị
 
-- The use of sexualized language or imagery and unwelcome sexual attention or
-  advances
-- Trolling, insulting/derogatory comments, and personal or political attacks
-- Public or private harassment
-- Publishing others' private information, such as a physical or electronic
-  address, without explicit permission
-- Other conduct which could reasonably be considered inappropriate in a
-  professional setting
+Ban quản trị dự án có trách nhiệm làm rõ các tiêu chuẩn về hành vi được chấp nhận và thực hiện các biện pháp khắc phục công bằng, phù hợp đối với mọi trường hợp vi phạm.
 
-## Our Responsibilities
+Ban quản trị có quyền và trách nhiệm xóa, chỉnh sửa hoặc từ chối các bình luận, commit, mã nguồn, chỉnh sửa wiki, issue và các đóng góp khác không phù hợp với Quy tắc ứng xử này, hoặc cấm tạm thời/vĩnh viễn bất kỳ thành viên nào có hành vi không phù hợp, đe dọa, xúc phạm hoặc gây hại.
 
-Project maintainers are responsible for clarifying the standards of acceptable
-behavior and are expected to take appropriate and fair corrective action in
-response to any instances of unacceptable behavior.
+## Phạm Vi Áp Dụng
 
-Project maintainers have the right and responsibility to remove, edit, or
-reject comments, commits, code, wiki edits, issues, and other contributions
-that are not aligned to this Code of Conduct, or to ban temporarily or
-permanently any contributor for other behaviors that they deem inappropriate,
-threatening, offensive, or harmful.
+Quy tắc ứng xử này được áp dụng trong tất cả các không gian liên quan đến dự án **Kini Bot 2.0** (bao gồm GitHub, máy chủ Discord hỗ trợ, Dashboard quản trị) và cũng được áp dụng khi một cá nhân đại diện cho dự án hoặc cộng đồng Kini Bot trong các không gian công cộng.
 
-## Scope
+## Thực Thi Quy Tắc
 
-This Code of Conduct applies within all project spaces, and it also applies when
-an individual is representing the project or its community in public spaces.
-Examples of representing a project or community include using an official
-project e-mail address, posting via an official social media account, or acting
-as an appointed representative at an online or offline event. Representation of
-a project may be further defined and clarified by project maintainers.
+Các hành vi lạm dụng, quấy rối hoặc không thể chấp nhận được có thể được báo cáo trực tiếp tới ban quản trị dự án Kini Bot qua:
+- **Discord Support**: [Liên kết hỗ trợ](https://discord.gg/your-server)
+- **Người chịu trách nhiệm chính**: **cao2501** (GitHub: [cao2501](https://github.com/cao2501))
 
-## Enforcement
+Tất cả các khiếu nại sẽ được xem xét, điều tra và bảo mật thông tin tuyệt đối cho người báo cáo.
 
-Instances of abusive, harassing, or otherwise unacceptable behavior may be
-reported by contacting the project team at https://discord.gg/djs. All
-complaints will be reviewed and investigated and will result in a response that
-is deemed necessary and appropriate to the circumstances. The project team is
-obligated to maintain confidentiality with regard to the reporter of an incident.
-Further details of specific enforcement policies may be posted separately.
+## Ghi Nhận Đóng Góp
 
-Project maintainers who do not follow or enforce the Code of Conduct in good
-faith may face temporary or permanent repercussions as determined by other
-members of the project's leadership.
+Quy tắc ứng xử này được biên soạn dựa trên bản dịch tiếng Việt của [Contributor Covenant](https://www.contributor-covenant.org), phiên bản 1.4.
 
-## Attribution
-
-This Code of Conduct is adapted from the [Contributor Covenant][homepage], version 1.4,
-available at https://www.contributor-covenant.org/version/1/4/code-of-conduct.html
-
-[homepage]: https://www.contributor-covenant.org
-
-For answers to common questions about this code of conduct, see
-https://www.contributor-covenant.org/faq
