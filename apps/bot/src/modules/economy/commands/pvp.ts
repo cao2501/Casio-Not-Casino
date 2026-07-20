@@ -496,6 +496,33 @@ export default class PvpCommand implements ICommand {
 
       let activeIndex = 0;
       let stood = [false, false, false, false];
+      const privateInteractions: Record<string, any> = {};
+
+      const updatePrivateHand = async (targetUserId: string) => {
+        const pInt = privateInteractions[targetUserId];
+        if (!pInt) return;
+
+        const playerIdx = allUserIds.indexOf(targetUserId);
+        if (playerIdx === -1) return;
+
+        const myHand = hands[playerIdx];
+        const myScore = scores[playerIdx];
+
+        try {
+          const privateBuffer = await CardDrawer.drawRandomCards(myHand);
+          const privateAttach = new AttachmentBuilder(privateBuffer, { name: 'bj-private-4p.png' });
+
+          const suitsVi: Record<Card['suit'], string> = { H: 'Cơ ♥', D: 'Rô ♦', C: 'Chuồn ♣', S: 'Bích ♠' };
+          const cardText = myHand.map(c => `**${c.value}** ${suitsVi[c.suit]}`).join(', ');
+
+          await pInt.editReply({
+            content: `🃏 Bài Blackjack của bạn: ${cardText} (Tổng điểm: **${myScore}** / 21)`,
+            files: [privateAttach]
+          });
+        } catch (err) {
+          delete privateInteractions[targetUserId];
+        }
+      };
 
       const getPvp4PBjButtons = () => {
         const activeUser = allUsers[activeIndex];
@@ -554,19 +581,8 @@ export default class PvpCommand implements ICommand {
           }
 
           await i.deferReply({ ephemeral: true });
-          const myHand = hands[playerIdx];
-          const myScore = scores[playerIdx];
-          
-          const privateBuffer = await CardDrawer.drawRandomCards(myHand);
-          const privateAttach = new AttachmentBuilder(privateBuffer, { name: 'bj-private-4p.png' });
-
-          const suitsVi: Record<Card['suit'], string> = { H: 'Cơ ♥', D: 'Rô ♦', C: 'Chuồn ♣', S: 'Bích ♠' };
-          const cardText = myHand.map(c => `**${c.value}** ${suitsVi[c.suit]}`).join(', ');
-
-          await i.editReply({
-            content: `🃏 Bài Blackjack của bạn: ${cardText} (Tổng điểm: **${myScore}** / 21)`,
-            files: [privateAttach]
-          });
+          privateInteractions[userId] = i;
+          await updatePrivateHand(userId);
           return;
         }
 
@@ -594,6 +610,7 @@ export default class PvpCommand implements ICommand {
         if (i.customId === 'bj_4p:hit') {
           hands[activeIndex].push(deck.pop()!);
           scores[activeIndex] = calculateScore(hands[activeIndex]);
+          await updatePrivateHand(expectedUserId);
 
           if (scores[activeIndex] > 21) {
             stood[activeIndex] = true;
@@ -855,8 +872,52 @@ export default class PvpCommand implements ICommand {
       let activePlayerIndex = 0;
       let statusText = `Lượt của <@${allUsers[activePlayerIndex].id}>. Hãy đưa ra quyết định.`;
       const playerNames = allUsers.map(u => u.username);
+      const privateInteractions: Record<string, any> = {};
+
+      const updatePrivateHand = async (targetUserId: string) => {
+        const pInt = privateInteractions[targetUserId];
+        if (!pInt) return;
+
+        const playerIdx = allUserIds.indexOf(targetUserId);
+        if (playerIdx === -1) return;
+
+        const hand = hands[playerIdx];
+
+        try {
+          const allCards = [...hand, ...communityCards];
+          const privateBuffer = await CardDrawer.drawRandomCards(allCards);
+          const privateAttach = new AttachmentBuilder(privateBuffer, { name: 'pocket.png' });
+
+          const suitsVi: Record<Card['suit'], string> = { H: 'Cơ ♥', D: 'Rô ♦', C: 'Chuồn ♣', S: 'Bích ♠' };
+          const pocketText = hand.map(c => `**${c.value}** ${suitsVi[c.suit]}`).join(', ');
+          
+          let comboText = '';
+          if (communityCards.length >= 3) {
+            const evalResult = evaluate7CardHand([...hand, ...communityCards]);
+            comboText = `\n✨ Liên kết tốt nhất hiện tại: **${evalResult.rankName}**`;
+          }
+
+          let msgContent = `🎴 Bài tẩy của bạn: ${pocketText}${comboText}`;
+          if (communityCards.length > 0) {
+            const communityText = communityCards.map(c => `**${c.value}** ${suitsVi[c.suit]}`).join(', ');
+            msgContent += `\n🃏 Bài chung đã lật: ${communityText}`;
+          }
+
+          await pInt.editReply({
+            content: msgContent,
+            files: [privateAttach]
+          });
+        } catch (err) {
+          delete privateInteractions[targetUserId];
+        }
+      };
 
       const getPvpTable = async (hideAll = true) => {
+        let displayStatusText = statusText;
+        for (const u of allUsers) {
+          displayStatusText = displayStatusText.replace(new RegExp(`<@${u.id}>`, 'g'), u.username);
+        }
+
         return CardDrawer.drawPoker4PTable(
           hands,
           communityCards,
@@ -867,7 +928,7 @@ export default class PvpCommand implements ICommand {
           playerNames,
           activePlayerIndex,
           hideAll,
-          statusText
+          displayStatusText
         );
       };
 
@@ -943,6 +1004,7 @@ export default class PvpCommand implements ICommand {
         }
         activePlayerIndex = playerFolded.indexOf(false);
         statusText += ` Lượt của <@${allUsers[activePlayerIndex].id}>.`;
+        Promise.all(allUsers.map(u => updatePrivateHand(u.id))).catch(() => null);
       };
 
       const checkAndSkipAllIn = async () => {
@@ -1012,17 +1074,8 @@ export default class PvpCommand implements ICommand {
           }
 
           await i.deferReply({ ephemeral: true });
-          const myHand = hands[playerIdx];
-          const privateBuffer = await CardDrawer.drawRandomCards(myHand);
-          const privateAttach = new AttachmentBuilder(privateBuffer, { name: 'pocket-4p.png' });
-
-          const suitsVi: Record<Card['suit'], string> = { H: 'Cơ ♥', D: 'Rô ♦', C: 'Chuồn ♣', S: 'Bích ♠' };
-          const cardText = myHand.map(c => `**${c.value}** ${suitsVi[c.suit]}`).join(', ');
-
-          await i.editReply({
-            content: `🎴 Bài tẩy của bạn: ${cardText}`,
-            files: [privateAttach]
-          });
+          privateInteractions[userId] = i;
+          await updatePrivateHand(userId);
           return;
         }
 
@@ -1347,6 +1400,31 @@ export default class PvpCommand implements ICommand {
       let turn: 'p1' | 'p2' | 'ended' = 'p1';
 
       let statusText = `Lượt của **${p1Name}** (Rút hoặc Dừng).`;
+      const privateInteractions: Record<string, any> = {};
+
+      const updatePrivateHand = async (targetUserId: string) => {
+        const pInt = privateInteractions[targetUserId];
+        if (!pInt) return;
+
+        const isChallenger = targetUserId === challengerId;
+        const myHand = isChallenger ? p1Hand : p2Hand;
+        const myScore = isChallenger ? p1Score : p2Score;
+
+        try {
+          const privateBuffer = await CardDrawer.drawRandomCards(myHand);
+          const privateAttach = new AttachmentBuilder(privateBuffer, { name: 'bj-private.png' });
+
+          const suitsVi: Record<Card['suit'], string> = { H: 'Cơ ♥', D: 'Rô ♦', C: 'Chuồn ♣', S: 'Bích ♠' };
+          const cardText = myHand.map(c => `**${c.value}** ${suitsVi[c.suit]}`).join(', ');
+
+          await pInt.editReply({
+            content: `🃏 Bài Blackjack của bạn: ${cardText} (Tổng điểm: **${myScore}** / 21)`,
+            files: [privateAttach]
+          });
+        } catch (err) {
+          delete privateInteractions[targetUserId];
+        }
+      };
 
       const potDisplay = currency === 'VND' ? `${pot.toLocaleString('vi-VN')} ₫` : `${pot.toLocaleString()} Coins`;
 
@@ -1415,19 +1493,8 @@ export default class PvpCommand implements ICommand {
           }
 
           await i.deferReply({ ephemeral: true });
-          const hand = (i.user.id === challengerId) ? p1Hand : p2Hand;
-          const score = (i.user.id === challengerId) ? p1Score : p2Score;
-          
-          const privateBuffer = await CardDrawer.drawRandomCards(hand);
-          const privateAttach = new AttachmentBuilder(privateBuffer, { name: 'bj-private.png' });
-
-          const suitsVi: Record<Card['suit'], string> = { H: 'Cơ ♥', D: 'Rô ♦', C: 'Chuồn ♣', S: 'Bích ♠' };
-          const cardText = hand.map(c => `**${c.value}** ${suitsVi[c.suit]}`).join(', ');
-
-          await i.editReply({
-            content: `🃏 Bài Blackjack của bạn: ${cardText} (Tổng điểm: **${score}** / 21)`,
-            files: [privateAttach]
-          });
+          privateInteractions[i.user.id] = i;
+          await updatePrivateHand(i.user.id);
           return;
         }
 
@@ -1493,6 +1560,7 @@ export default class PvpCommand implements ICommand {
           if (activeId === challengerId) {
             p1Hand.push(deck.pop()!);
             p1Score = calculateScore(p1Hand);
+            await updatePrivateHand(challengerId);
             if (p1Score > 21) {
               // BUST -> Đối thủ thắng ngay lập tức
               turn = 'ended';
@@ -1518,6 +1586,7 @@ export default class PvpCommand implements ICommand {
           } else {
             p2Hand.push(deck.pop()!);
             p2Score = calculateScore(p2Hand);
+            await updatePrivateHand(opponentId);
             if (p2Score > 21) {
               // BUST -> Challenger thắng ngay lập tức
               turn = 'ended';
@@ -1803,8 +1872,49 @@ export default class PvpCommand implements ICommand {
       let activePlayerId = challengerId;
       let raiseState: { raiserId: string; raiseAmount: number } | null = null;
       let statusText = `Lượt của <@${activePlayerId}>. Hãy đưa ra quyết định.`;
+      const privateInteractions: Record<string, any> = {};
+
+      const updatePrivateHand = async (targetUserId: string) => {
+        const pInt = privateInteractions[targetUserId];
+        if (!pInt) return;
+
+        const isChallenger = targetUserId === challengerId;
+        const hand = isChallenger ? p1Hand : p2Hand;
+
+        try {
+          const allCards = [...hand, ...communityCards];
+          const privateBuffer = await CardDrawer.drawRandomCards(allCards);
+          const privateAttach = new AttachmentBuilder(privateBuffer, { name: 'pocket.png' });
+
+          const suitsVi: Record<Card['suit'], string> = { H: 'Cơ ♥', D: 'Rô ♦', C: 'Chuồn ♣', S: 'Bích ♠' };
+          const pocketText = hand.map(c => `**${c.value}** ${suitsVi[c.suit]}`).join(', ');
+          
+          let comboText = '';
+          if (communityCards.length >= 3) {
+            const evalResult = evaluate7CardHand([...hand, ...communityCards]);
+            comboText = `\n✨ Liên kết tốt nhất hiện tại: **${evalResult.rankName}**`;
+          }
+
+          let msgContent = `🎴 Bài tẩy của bạn: ${pocketText}${comboText}`;
+          if (communityCards.length > 0) {
+            const communityText = communityCards.map(c => `**${c.value}** ${suitsVi[c.suit]}`).join(', ');
+            msgContent += `\n🃏 Bài chung đã lật: ${communityText}`;
+          }
+
+          await pInt.editReply({
+            content: msgContent,
+            files: [privateAttach]
+          });
+        } catch (err) {
+          delete privateInteractions[targetUserId];
+        }
+      };
 
       const getPvpTable = async (hideAll = true) => {
+        const displayStatusText = statusText
+          .replace(new RegExp(`<@${challengerId}>`, 'g'), interaction.user.username)
+          .replace(new RegExp(`<@${opponentId}>`, 'g'), opponentUser.username);
+
         return CardDrawer.drawPokerTable(
           p1Hand,
           p2Hand,
@@ -1814,7 +1924,7 @@ export default class PvpCommand implements ICommand {
           p2TotalBet,
           currency,
           phase === 'preflop' ? 'Preflop' : phase === 'flop1' ? 'Flop 1' : phase === 'flop2' ? 'Flop 2' : phase === 'flop3' ? 'Flop 3' : phase === 'turn' ? 'Turn' : phase === 'river' ? 'River' : 'Showdown',
-          statusText,
+          displayStatusText,
           hideAll, // hideBotHand
           hideAll, // hidePlayerHand
           interaction.user.username.toUpperCase(),
@@ -1919,6 +2029,10 @@ export default class PvpCommand implements ICommand {
         raiseState = null;
         activePlayerId = challengerId;
         statusText += ` Lượt của <@${activePlayerId}>.`;
+        Promise.all([
+          updatePrivateHand(challengerId),
+          updatePrivateHand(opponentId)
+        ]).catch(() => null);
       };
 
       const checkUserBalance = async (userId: string, amount: number): Promise<boolean> => {
@@ -1956,6 +2070,10 @@ export default class PvpCommand implements ICommand {
         phase = 'showdown';
         gameEnded = true;
         gameCollector.stop('showdown');
+        await Promise.all([
+          updatePrivateHand(challengerId),
+          updatePrivateHand(opponentId)
+        ]).catch(() => null);
       };
 
       let drawRequesterId: string | null = null;
@@ -2021,17 +2139,8 @@ export default class PvpCommand implements ICommand {
           }
 
           await i.deferReply({ ephemeral: true });
-          const hand = (i.user.id === challengerId) ? p1Hand : p2Hand;
-          const privateBuffer = await CardDrawer.drawRandomCards(hand);
-          const privateAttach = new AttachmentBuilder(privateBuffer, { name: 'pocket.png' });
-
-          const suitsVi: Record<Card['suit'], string> = { H: 'Cơ ♥', D: 'Rô ♦', C: 'Chuồn ♣', S: 'Bích ♠' };
-          const cardText = hand.map(c => `**${c.value}** ${suitsVi[c.suit]}`).join(', ');
-
-          await i.editReply({
-            content: `🎴 Bài tẩy của bạn: ${cardText}`,
-            files: [privateAttach]
-          });
+          privateInteractions[i.user.id] = i;
+          await updatePrivateHand(i.user.id);
           return;
         }
 
