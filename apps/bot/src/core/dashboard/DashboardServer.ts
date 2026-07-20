@@ -299,6 +299,11 @@ export class DashboardServer {
       });
     });
 
+    this.server.on('error', (err: any) => {
+      logger.error('Dashboard Server error:', err);
+      process.exit(1);
+    });
+
     this.server.listen(port, () => {
       logger.info(`🌐 Dashboard Server is running at http://localhost:${port}`);
     });
