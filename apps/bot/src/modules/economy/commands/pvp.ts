@@ -406,17 +406,23 @@ export default class PvpCommand implements ICommand {
 
       const calculateScore = (hand: Card[]): number => {
         let score = 0;
-        let aces = 0;
+        let aceCount = 0;
         const valuesMap: Record<string, number> = {
-          '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10, 'J': 10, 'Q': 10, 'K': 10, 'A': 11
+          '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10, 'J': 10, 'Q': 10, 'K': 10
         };
         for (const c of hand) {
-          score += valuesMap[c.value];
-          if (c.value === 'A') aces++;
+          if (c.value === 'A') {
+            aceCount++;
+          } else {
+            score += valuesMap[c.value] || 0;
+          }
         }
-        while (score > 21 && aces > 0) {
-          score -= 10;
-          aces--;
+        for (let i = 0; i < aceCount; i++) {
+          if (score < 11) {
+            score += 10;
+          } else {
+            score += 1;
+          }
         }
         return score;
       };
@@ -705,11 +711,8 @@ export default class PvpCommand implements ICommand {
               }
             }
           } else {
-            outcome = '🤝 HÒA! Tất cả các người chơi đều bị BUST (>21 điểm). Hoàn tiền cược!';
+            outcome = '🤝 HÒA! Tất cả các người chơi đều bị BUST (>21 điểm). Tất cả người chơi mất tiền cược!';
             winColor = 0x5865F2;
-            for (let i = 0; i < 4; i++) {
-              await updatePlayerBalance(allUsers[i].id, allUsers[i].username, bet, true);
-            }
           }
         } else {
           outcome = '❌ Trận đấu kết thúc do quá thời gian chờ (idle)! Hoàn tiền cược.';
@@ -1301,17 +1304,23 @@ export default class PvpCommand implements ICommand {
 
       const calculateScore = (hand: Card[]): number => {
         let score = 0;
-        let aces = 0;
+        let aceCount = 0;
         const valuesMap: Record<string, number> = {
-          '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10, 'J': 10, 'Q': 10, 'K': 10, 'A': 11
+          '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10, 'J': 10, 'Q': 10, 'K': 10
         };
         for (const c of hand) {
-          score += valuesMap[c.value];
-          if (c.value === 'A') aces++;
+          if (c.value === 'A') {
+            aceCount++;
+          } else {
+            score += valuesMap[c.value] || 0;
+          }
         }
-        while (score > 21 && aces > 0) {
-          score -= 10;
-          aces--;
+        for (let i = 0; i < aceCount; i++) {
+          if (score < 11) {
+            score += 10;
+          } else {
+            score += 1;
+          }
         }
         return score;
       };
@@ -1562,10 +1571,14 @@ export default class PvpCommand implements ICommand {
             p1Score = calculateScore(p1Hand);
             await updatePrivateHand(challengerId);
             if (p1Score > 21) {
-              // BUST -> Đối thủ thắng ngay lập tức
-              turn = 'ended';
-              gameCollector.stop('showdown');
-              return;
+              p1Stood = true;
+              if (p2Stood) {
+                turn = 'ended';
+                gameCollector.stop('showdown');
+                return;
+              }
+              activeId = opponentId;
+              statusText = `**${p1Name}** đã rút 1 lá bài và bị BUST (>21 điểm)! Lượt chuyển sang **${p2Name}**.`;
             } else if (p1Hand.length >= 5) {
               p1Stood = true;
               if (p2Stood) {
@@ -1574,13 +1587,13 @@ export default class PvpCommand implements ICommand {
                 return;
               }
               activeId = opponentId;
-              statusText = `<@${challengerId}> đã rút đủ 5 lá và tự động dừng bài! Lượt chuyển sang <@${activeId}>.`;
+              statusText = `**${p1Name}** đã rút đủ 5 lá và tự động dừng bài! Lượt chuyển sang **${p2Name}**.`;
             } else {
               if (!p2Stood) {
                 activeId = opponentId;
-                statusText = `<@${challengerId}> đã rút 1 lá. Lượt tiếp theo của <@${activeId}>.`;
+                statusText = `**${p1Name}** đã rút 1 lá. Lượt tiếp theo của **${p2Name}**.`;
               } else {
-                statusText = `<@${challengerId}> đã rút 1 lá và tiếp tục lượt (do đối thủ đã dừng).`;
+                statusText = `**${p1Name}** đã rút 1 lá và tiếp tục lượt (do đối thủ đã dừng).`;
               }
             }
           } else {
@@ -1588,10 +1601,14 @@ export default class PvpCommand implements ICommand {
             p2Score = calculateScore(p2Hand);
             await updatePrivateHand(opponentId);
             if (p2Score > 21) {
-              // BUST -> Challenger thắng ngay lập tức
-              turn = 'ended';
-              gameCollector.stop('showdown');
-              return;
+              p2Stood = true;
+              if (p1Stood) {
+                turn = 'ended';
+                gameCollector.stop('showdown');
+                return;
+              }
+              activeId = challengerId;
+              statusText = `**${p2Name}** đã rút 1 lá bài và bị BUST (>21 điểm)! Lượt chuyển sang **${p1Name}**.`;
             } else if (p2Hand.length >= 5) {
               p2Stood = true;
               if (p1Stood) {
@@ -1688,10 +1705,8 @@ export default class PvpCommand implements ICommand {
               await updatePlayerBalance(opponentId, p2Name, pot, true);
             }
           } else if (p1Score > 21 && p2Score > 21) {
-            outcome = `🤝 HÒA! Cả hai đều bị BUST (>21) — **${p1Name}**: ${p1Score} điểm vs **${p2Name}**: ${p2Score} điểm`;
+            outcome = `🤝 HÒA! Cả hai đều bị BUST (>21 điểm) — **${p1Name}**: ${p1Score} điểm vs **${p2Name}**: ${p2Score} điểm\n(Cả hai người chơi đều mất tiền cược)`;
             winColor = 0x5865F2;
-            await updatePlayerBalance(challengerId, p1Name, bet, true);
-            await updatePlayerBalance(opponentId, p2Name, bet, true);
           } else if (p1Score > 21) {
             outcome = `🏆 **${p2Name}** chiến thắng! (**${p1Name}** bị BUST với ${p1Score} điểm | **${p2Name}**: ${p2Score} điểm)`;
             winColor = 0x57F287;

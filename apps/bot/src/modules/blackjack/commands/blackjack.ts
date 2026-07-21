@@ -133,20 +133,22 @@ export default class BlackjackCommand implements ICommand {
 
     const calculateScore = (cards: Card[]): number => {
       let score = 0;
-      let aces = 0;
+      let aceCount = 0;
       for (const card of cards) {
         if (card.value === 'A') {
-          aces += 1;
-          score += 11;
+          aceCount += 1;
         } else if (['J', 'Q', 'K'].includes(card.value)) {
           score += 10;
         } else {
           score += parseInt(card.value);
         }
       }
-      while (score > 21 && aces > 0) {
-        score -= 10;
-        aces -= 1;
+      for (let i = 0; i < aceCount; i++) {
+        if (score < 11) {
+          score += 10;
+        } else {
+          score += 1;
+        }
       }
       return score;
     };
