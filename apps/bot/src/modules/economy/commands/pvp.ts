@@ -1578,7 +1578,7 @@ export default class PvpCommand implements ICommand {
                 return;
               }
               activeId = opponentId;
-              statusText = `**${p1Name}** đã rút 1 lá bài và bị BUST (>21 điểm)! Lượt chuyển sang **${p2Name}**.`;
+              statusText = `**${p1Name}** đã hoàn thành lượt bài! Lượt chuyển sang **${p2Name}**.`;
             } else if (p1Hand.length >= 5) {
               p1Stood = true;
               if (p2Stood) {
@@ -1608,7 +1608,7 @@ export default class PvpCommand implements ICommand {
                 return;
               }
               activeId = challengerId;
-              statusText = `**${p2Name}** đã rút 1 lá bài và bị BUST (>21 điểm)! Lượt chuyển sang **${p1Name}**.`;
+              statusText = `**${p2Name}** đã hoàn thành lượt bài! Lượt chuyển sang **${p1Name}**.`;
             } else if (p2Hand.length >= 5) {
               p2Stood = true;
               if (p1Stood) {
