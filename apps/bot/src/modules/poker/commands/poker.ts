@@ -290,7 +290,8 @@ export default class PokerCommand implements ICommand {
     // Các nút hành động
     const getPokerButtons = (canRaise: boolean) => {
       const isRaiseAllowed = phase !== 'showdown';
-      const label = 'Xem Bài / Theo Cược (Check/Call)';
+      const isCheckAllowed = phase !== 'preflop' && phase !== 'flop1';
+      const label = isCheckAllowed ? 'Xem Bài / Theo Cược (Check/Call)' : 'Theo Cược (Call)';
       const raiseLabel = currency === 'VND'
         ? `Tăng cược (+${startingBet.toLocaleString('vi-VN')} ₫)`
         : `Tăng cược (+${startingBet.toLocaleString()} Coins)`;
@@ -399,8 +400,9 @@ export default class PokerCommand implements ICommand {
         }
       } else {
         // Check / Call bình thường
-        botAction = 'check';
-        statusText = `Cả hai bên đều CHECK.`;
+        const isCheckAllowed = phase !== 'preflop' && phase !== 'flop1';
+        botAction = isCheckAllowed ? 'check' : 'call';
+        statusText = isCheckAllowed ? 'Cả hai bên đều CHECK.' : 'Cả hai bên đều CALL.';
       }
 
       // 4. Chuyển sang vòng tiếp theo
@@ -411,7 +413,7 @@ export default class PokerCommand implements ICommand {
       } else if (phase === 'flop1') {
         phase = 'flop2';
         communityCards.push(flopCards[1]);
-        statusText += ` Vòng 3: Lá bài chung thứ 2 mở ra (Được phép Check/Raise).`;
+        statusText += ` Vòng 3: Lá bài chung thứ 2 mở ra (Bắt đầu được Check).`;
       } else if (phase === 'flop2') {
         phase = 'flop3';
         communityCards.push(flopCards[2]);
