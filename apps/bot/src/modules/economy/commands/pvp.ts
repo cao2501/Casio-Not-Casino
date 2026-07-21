@@ -630,6 +630,9 @@ export default class PvpCommand implements ICommand {
             statusText = `**${allUsers[activeIndex].username}** đã rút 1 lá bài và tiếp tục lượt.`;
           }
         } else if (i.customId === 'bj_4p:stand') {
+          if (scores[activeIndex] < 16) {
+            return void i.followUp({ content: `❌ Điểm bài của bạn mới đạt **${scores[activeIndex]}** điểm (< 16 điểm). Bắt buộc phải rút thêm bài!`, ephemeral: true });
+          }
           stood[activeIndex] = true;
           statusText = `**${allUsers[activeIndex].username}** đã Dừng bài (Stand).`;
           advancePlayer();
@@ -1628,6 +1631,10 @@ export default class PvpCommand implements ICommand {
             }
           }
         } else if (i.customId === 'bj_pvp:stand') {
+          const currentScore = activeId === challengerId ? p1Score : p2Score;
+          if (currentScore < 16) {
+            return void i.followUp({ content: `❌ Điểm bài của bạn mới đạt **${currentScore}** điểm (< 16 điểm). Bắt buộc phải rút thêm bài!`, ephemeral: true });
+          }
           if (activeId === challengerId) {
             p1Stood = true;
             if (p2Stood) {

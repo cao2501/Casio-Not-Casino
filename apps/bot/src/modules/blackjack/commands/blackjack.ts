@@ -336,6 +336,9 @@ export default class BlackjackCommand implements ICommand {
         gameEnded = true;
         collector.stop('double');
       } else if (i.customId === 'bj:stand') {
+        if (playerScore < 16) {
+          return void i.followUp({ content: `❌ Điểm bài của bạn mới đạt **${playerScore}** điểm (< 16 điểm). Bắt buộc phải rút thêm bài!`, ephemeral: true });
+        }
         gameEnded = true;
         collector.stop('stand');
       }
