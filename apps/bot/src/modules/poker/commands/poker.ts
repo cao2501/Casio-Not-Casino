@@ -289,17 +289,20 @@ export default class PokerCommand implements ICommand {
 
     // Các nút hành động
     const getPokerButtons = (canRaise: boolean) => {
-      const isCheckAllowed = phase === 'flop2';
-      const label = isCheckAllowed ? 'Xem Bài / Theo Cược (Check/Call)' : 'Theo Cược (Call)';
+      const isRaiseAllowed = phase !== 'showdown';
+      const label = 'Xem Bài / Theo Cược (Check/Call)';
+      const raiseLabel = currency === 'VND'
+        ? `Tăng cược (+${startingBet.toLocaleString('vi-VN')} ₫)`
+        : `Tăng cược (+${startingBet.toLocaleString()} Coins)`;
       return [
         new ActionRowBuilder<ButtonBuilder>().addComponents(
           new ButtonBuilder().setCustomId('pk:check').setLabel(label).setStyle(ButtonStyle.Success).setEmoji('✅'),
           new ButtonBuilder()
             .setCustomId('pk:raise')
-            .setLabel(`Tăng cược (+${startingBet.toLocaleString()})`)
+            .setLabel(raiseLabel)
             .setStyle(ButtonStyle.Primary)
             .setEmoji('🔺')
-            .setDisabled(!canRaise || !isCheckAllowed),
+            .setDisabled(!canRaise || !isRaiseAllowed),
           new ButtonBuilder().setCustomId('pk:fold').setLabel('Fold (Bỏ bài)').setStyle(ButtonStyle.Danger).setEmoji('🏳️')
         )
       ];
@@ -370,6 +373,11 @@ export default class PokerCommand implements ICommand {
       let botAction: 'check' | 'call' | 'fold' = 'check';
 
       if (i.customId === 'pk:raise') {
+        const canStillRaise = await checkCanRaise();
+        if (!canStillRaise) {
+          return void i.followUp({ content: '❌ Số dư của bạn không đủ để tăng cược!', ephemeral: true });
+        }
+
         // Người chơi tăng cược
         await updateBalance(startingBet, false);
         playerTotalBet += startingBet;
@@ -386,7 +394,8 @@ export default class PokerCommand implements ICommand {
           botTotalBet += startingBet;
           pot += startingBet;
           botAction = 'call';
-          statusText = `Bot đã CALL cược tăng của bạn!`;
+          const formattedRaise = currency === 'VND' ? `${startingBet.toLocaleString('vi-VN')} ₫` : `${startingBet.toLocaleString()} Coins`;
+          statusText = `Bạn đã tăng cược **+${formattedRaise}** và Bot đã CALL!`;
         }
       } else {
         // Check / Call bình thường
